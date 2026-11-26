@@ -596,6 +596,51 @@
 .gauge-ic.sl {
   border-bottom-color: #4cc9f0;
 }
+/* Source-zone catalogue markers: a diamond coloured by tectonic setting. */
+.zone-ic {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  transform: rotate(45deg);
+  border: 2px solid #fff;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.4);
+  cursor: pointer;
+}
+.zone-mk {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+.zone-mk.active .zone-ic {
+  width: 15px;
+  height: 15px;
+  box-shadow: 0 0 0 3px rgb(255 107 87 / 0.55), 0 1px 3px rgb(0 0 0 / 0.4);
+}
+.zone-mk.hidden {
+  display: none;
+}
+.epi.drag {
+  cursor: grab;
+}
+.picking .maplibregl-canvas {
+  cursor: crosshair !important;
+}
+.zone-pop b {
+  display: block;
+  font-size: 0.9rem;
+}
+.zone-pop button {
+  margin-top: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  background: var(--accent);
+  color: #fff;
+}
 .glass {
   background: color-mix(in srgb, var(--bg-elev) 90%, transparent);
   backdrop-filter: blur(10px);

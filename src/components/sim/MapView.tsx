@@ -1,5 +1,5 @@
 "use client";
-import { Globe, LocateFixed, Map as MapIcon, Maximize2, Mountain } from "lucide-react";
+import { Crosshair, Diamond, Globe, LocateFixed, Map as MapIcon, Maximize2, Mountain } from "lucide-react";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import type { Map as MLMap, Marker, StyleSpecification } from "maplibre-gl";
@@ -12,6 +12,7 @@ import { fmtDur, fmtLen } from "@/lib/format";
 import { live, useSim } from "@/lib/sim/store";
 import { slRows } from "@/lib/sim/derive";
 import { renderField } from "@/lib/sim/render";
+import { SETTING_COLOR, SOURCE_ZONES, zoneAt, type SourceZone } from "@/lib/physics/sources";
 import { useT } from "@/i18n/client";
 import { fmt } from "@/i18n/config";
 import type { Dict } from "@/i18n/dict/en";
@@ -217,6 +218,19 @@ function popupHtml(name: string, run: RunData | null, elev: Record<string, numbe
   return s;
 }
 
+function zonePopupHtml(z: SourceZone) {
+  const S = DICT.sim.sources;
+  const name = S.names[z.id as keyof typeof S.names] ?? z.id;
+  const ev = z.events.length ? z.events.map((e) => `${e.year} M<sub>w</sub> ${e.M}${e.tsunami ? ` (${esc(S.tsunami)})` : ""}`).join(" · ") : esc(S.none);
+  return (
+    `<div class="zone-pop"><b>${esc(name)}</b>` +
+    `<span style="color:${SETTING_COLOR[z.setting]};font-weight:700">${esc(S.settings[z.setting])}</span><br>` +
+    `${fmtLat(z.lat)}, ${fmtLon(z.lon)} · M<sub>w</sub> ${z.M.toFixed(1)} (max ${z.Mmax.toFixed(1)}) · ${esc(DICT.sim.mech[z.mech])}<br>` +
+    `${ev}<br><span style="opacity:.7">${esc(z.refs.join("; "))}</span><br>` +
+    `<button type="button" data-zone="${z.id}">▶ ${esc(S.loadTitle)}</button></div>`
+  );
+}
+
 function useTheme() {
   const [dark, setDark] = useState(false);
   useEffect(() => {
@@ -241,6 +255,7 @@ export default function MapView() {
   const fieldCanvas = useRef<HTMLCanvasElement | null>(null);
   const mapRef = useRef<MLMap | null>(null);
   const markers = useRef<Record<string, Marker>>({});
+  const zoneMarkers = useRef<Record<string, Marker>>({});
   const epiRef = useRef<Marker | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [fallbackNote, setFallbackNote] = useState<string | null>(null);
@@ -322,7 +337,12 @@ export default function MapView() {
       // Point readout: report the pointer (or tap) position to the store.
       const setHover = (lat: number, lon: number) => useSim.getState().set("hover", { lat, lon });
       map.on("mousemove", (e) => setHover(e.lngLat.lat, e.lngLat.lng));
-      map.on("click", (e) => setHover(e.lngLat.lat, e.lngLat.lng));
+      map.on("click", (e) => {
+        const st = useSim.getState();
+        // Custom source: in pick mode a click places the epicentre (and runs the model).
+        if (st.picking) st.placeSource(e.lngLat.lat, e.lngLat.lng);
+        else setHover(e.lngLat.lat, e.lngLat.lng);
+      });
       map.getCanvas().addEventListener("mouseleave", () => useSim.getState().set("hover", null));
       const mk = (cls: string, html: string, title: string) => {
         const e = document.createElement("div");
@@ -331,10 +351,33 @@ export default function MapView() {
         e.title = title;
         return e;
       };
-      epiRef.current = new ml.Marker({ element: mk("epi", "<i></i>", DICT.sim.map.popup.source) })
+      // Source-zone catalogue (drawn below the epicentre so the active source stays on top).
+      for (const z of SOURCE_ZONES) {
+        // MapLibre positions markers with `transform`, so the rotated diamond is an inner element.
+        const e = mk("zone-mk", `<i class="zone-ic" style="background:${SETTING_COLOR[z.setting]}"></i>`, DICT.sim.sources.names[z.id as keyof typeof DICT.sim.sources.names] ?? z.id);
+        e.setAttribute("role", "button");
+        e.setAttribute("aria-label", e.title);
+        const pop = new ml.Popup({ offset: 10, maxWidth: "300px" }).setHTML(zonePopupHtml(z));
+        pop.on("open", () => {
+          pop
+            .getElement()
+            ?.querySelector<HTMLButtonElement>("button[data-zone]")
+            ?.addEventListener("click", () => {
+              pop.remove();
+              useSim.getState().loadZone(z.id);
+            });
+        });
+        zoneMarkers.current[z.id] = new ml.Marker({ element: e }).setLngLat([z.lon, z.lat]).setPopup(pop).addTo(map);
+      }
+      // The epicentre can be dragged to set a custom source anywhere in the ocean.
+      epiRef.current = new ml.Marker({ element: mk("epi drag", "<i></i>", DICT.sim.sources.dragHint), draggable: true })
         .setLngLat([params.lon, params.lat])
         .setPopup(new ml.Popup({ offset: 14, maxWidth: "320px" }))
         .addTo(map);
+      epiRef.current.on("dragend", () => {
+        const ll = epiRef.current!.getLngLat();
+        useSim.getState().placeSource(ll.lat, ll.lng);
+      });
       for (const g of GAUGES) {
         const e = mk("gauge-ic" + (g.sl ? " sl" : ""), "", placeName(g.name));
         e.setAttribute("role", "button");
@@ -486,6 +529,28 @@ export default function MapView() {
     for (const [name, m] of Object.entries(markers.current)) m.getPopup()?.setHTML(popupHtml(name, run, elev));
   }, [run, elev, ready, t]);
 
+  // ---- source-zone markers: visibility, active highlight, localized popups
+  const showZones = useSim((s) => s.showZones);
+  const picking = useSim((s) => s.picking);
+  useEffect(() => {
+    const active = params.scen === "whatif" ? zoneAt(params.lat, params.lon)?.id : SOURCE_ZONES.find((z) => z.scenario === params.scen)?.id;
+    for (const z of SOURCE_ZONES) {
+      const m = zoneMarkers.current[z.id];
+      if (!m) continue;
+      const e = m.getElement();
+      e.classList.toggle("hidden", !showZones);
+      e.classList.toggle("active", z.id === active);
+      e.title = t.sim.sources.names[z.id as keyof typeof t.sim.sources.names] ?? z.id;
+      e.setAttribute("aria-label", e.title);
+      m.getPopup()?.setHTML(zonePopupHtml(z));
+    }
+    const epi = epiRef.current?.getElement();
+    if (epi) epi.title = t.sim.sources.dragHint;
+  }, [showZones, params.scen, params.lat, params.lon, ready, t]);
+  useEffect(() => {
+    el.current?.classList.toggle("picking", picking);
+  }, [picking]);
+
   // ---- coastal overlays
   useEffect(() => {
     const map = mapRef.current;
@@ -553,6 +618,14 @@ export default function MapView() {
         <div ref={el} className="h-full w-full bg-[#0a1628]" aria-label={T.aria} />
       </div>
       {failed && <div className="absolute inset-0 grid place-items-center p-6 text-center text-warn">{failed}</div>}
+      {picking && (
+        <div className="glass absolute left-1/2 top-16 z-[7] flex -translate-x-1/2 items-center gap-2 px-3 py-2 text-sm font-semibold text-fg max-lg:top-[112px]" role="status">
+          <Crosshair size={16} className="text-accent" aria-hidden /> {t.sim.sources.picking}
+          <button className="btn !min-h-0 !px-2 !py-0.5 text-xs" onClick={() => useSim.getState().set("picking", false)}>
+            {t.sim.sources.cancel}
+          </button>
+        </div>
+      )}
       {fallbackNote && (
         <div className="glass absolute left-1/2 top-16 z-[6] w-[min(28rem,calc(100%-24px))] -translate-x-1/2 max-lg:top-[112px] px-3 py-2 text-xs text-fg-2" role="status">
           {fallbackNote}{" "}
@@ -568,6 +641,8 @@ export default function MapView() {
           <MapBtn on={globe} onClick={() => setGlobe((v) => !v)} title={T.globe}><Globe size={16} /></MapBtn>
           <MapBtn onClick={() => mapApi.fitDomain()} title={T.domain}><Maximize2 size={16} /></MapBtn>
           <MapBtn onClick={() => mapApi.fitSL()} title={T.sl}><LocateFixed size={16} /></MapBtn>
+          <MapBtn on={showZones} onClick={() => useSim.getState().set("showZones", !showZones)} title={t.sim.sources.mapToggle}><Diamond size={16} /></MapBtn>
+          <MapBtn on={picking} onClick={() => useSim.getState().set("picking", !picking)} title={t.sim.sources.pick}><Crosshair size={16} /></MapBtn>
         </div>
         {menu && (
           <div className="glass w-60 p-2 self-end max-lg:self-start">

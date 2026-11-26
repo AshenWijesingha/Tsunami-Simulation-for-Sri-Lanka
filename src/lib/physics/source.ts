@@ -62,7 +62,7 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
     clock: { base: 16 * 60 + 36, tz: "SLT" },
     badge: "hypo",
     status: "Hypothetical scenario",
-    note: "Hypothetical: this did not happen. Choose a preset or set your own epicentre, magnitude, mechanism and strike.",
+    note: "Hypothetical: this did not happen. Choose a source zone from the catalogue, or set your own epicentre, magnitude, mechanism and strike.",
   },
   v2004: {
     id: "v2004",
@@ -82,15 +82,6 @@ export const SCENARIOS: Record<ScenarioId, Scenario> = {
     note: "Validation case: an idealised single-segment source (L = 1,300 km, W = 150 km, strike 340°) centred near 8° N, 93° E with instantaneous rupture. The real rupture lasted about 8–10 min and was strongly heterogeneous. Observed first arrival in Sri Lanka: about 2 h after the earthquake (Goff et al., 2006).",
   },
 };
-
-/** Presets for the hypothetical scenario. Idealised single-plane sources; not reconstructions. */
-export const WHATIF_PRESETS: { id: string; label: string; lat: number; lon: number; M: number; mech: Mechanism; strike: number; note: string }[] = [
-  { id: "ridge", label: "Bulletin epicentre, M8.5 thrust (upper bound)", lat: -17.78, lon: 65.82, M: 8.5, mech: "thrust", strike: 160, note: "Same location as the actual event with a deliberately unrealistic thrust mechanism." },
-  { id: "wharton", label: "Wharton Basin, M8.6 strike-slip (2012-type)", lat: 2.33, lon: 93.06, M: 8.6, mech: "strike", strike: 20, note: "Idealised analogue of the 11 April 2012 intraplate event; strike-slip produced only small waves." },
-  { id: "nsumatra", label: "North Sumatra megathrust, M8.8", lat: 3.0, lon: 95.0, M: 8.8, mech: "thrust", strike: 325, note: "Hypothetical megathrust segment south of the 2004 rupture." },
-  { id: "andaman", label: "Andaman megathrust, M8.5", lat: 12.5, lon: 92.6, M: 8.5, mech: "thrust", strike: 350, note: "Hypothetical rupture of the northern Andaman segment." },
-  { id: "carlsberg", label: "Carlsberg Ridge, M7.5 normal", lat: 4.5, lon: 62.5, M: 7.5, mech: "normal", strike: 135, note: "Mid-ocean ridge event north-west of the Maldives." },
-];
 
 export interface Params {
   scen: ScenarioId;

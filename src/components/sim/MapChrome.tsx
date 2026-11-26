@@ -124,9 +124,14 @@ export function Playbar() {
       if (q && Number.isFinite(q.etaShore)) ev.push({ t: q.etaShore, l });
     }
     ev.sort((a, b) => a.t - b.t);
-    // drop labels that would collide (≈ 11 % of the track)
+    // Drop labels that would collide: centres must be at least half of both labels apart
+    // (about 6.5 px per character on a track of roughly 480 px), and never closer than 11 %.
     const out: typeof ev = [];
-    for (const e of ev) if (!out.length || (e.t - out[out.length - 1].t) / run.params.dur > 0.11) out.push(e);
+    for (const e of ev) {
+      const prev = out[out.length - 1];
+      const need = prev ? Math.max(0.11, ((prev.l.length + e.l.length) / 2) * 6.5 / 480 + 0.02) : 0;
+      if (!prev || (e.t - prev.t) / run.params.dur > need) out.push(e);
+    }
     return out;
   }, [run, P]);
 

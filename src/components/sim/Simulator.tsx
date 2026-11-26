@@ -11,10 +11,11 @@ import MapView, { mapApi } from "./MapView";
 import { Colorbar, LayerBar, Playbar } from "./MapChrome";
 import { GaugesPanel, ModelPanel, ResultsPanel, RunsPanel } from "./panels";
 import { PointReadout, WaveHeightPanel } from "./WaveHeight";
+import { SourcesPanel } from "./SourcesPanel";
 import { fmt, localePath } from "@/i18n/config";
 import { useI18n } from "@/i18n/client";
 
-const TABS = [{ k: "model" }, { k: "results" }, { k: "height" }, { k: "gauges" }, { k: "runs" }, { k: "course" }] as const;
+const TABS = [{ k: "model" }, { k: "sources" }, { k: "results" }, { k: "height" }, { k: "gauges" }, { k: "runs" }, { k: "course" }] as const;
 type Tab = (typeof TABS)[number]["k"];
 
 function applyView(v: View) {
@@ -141,7 +142,10 @@ export default function Simulator() {
       const t = e.target as HTMLElement;
       if (t.closest("input,select,textarea,[contenteditable]") || e.metaKey || e.ctrlKey || e.altKey) return;
       const s = useSim.getState();
-      if (e.key === "Escape") setHelp(false);
+      if (e.key === "Escape") {
+        setHelp(false);
+        if (s.picking) s.set("picking", false);
+      }
       else if (e.key === " ") {
         s.setPlaying(!s.playing);
         e.preventDefault();
@@ -273,6 +277,7 @@ export default function Simulator() {
             </nav>
             <div className="min-h-0 flex-1 overflow-auto">
               {tab === "model" && <ModelPanel />}
+              {tab === "sources" && <SourcesPanel />}
               {tab === "results" && <ResultsPanel />}
               {tab === "height" && <WaveHeightPanel />}
               {tab === "gauges" && <GaugesPanel />}

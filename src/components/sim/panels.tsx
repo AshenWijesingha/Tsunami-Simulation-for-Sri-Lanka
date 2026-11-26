@@ -3,7 +3,7 @@ import { Download, Loader2, Play, RefreshCw } from "lucide-react";
 import { useMemo } from "react";
 import { C_KMMIN, C_PATH, DOM, DONDRA, GREEN10 } from "@/lib/physics/constants";
 import { fmtLat, fmtLon, hav } from "@/lib/physics/geo";
-import { abe81, abe89, buildSource, MECH, SCENARIOS, WHATIF_PRESETS, type Mechanism, type ScenarioId } from "@/lib/physics/source";
+import { abe81, abe89, buildSource, MECH, SCENARIOS, type Mechanism, type ScenarioId } from "@/lib/physics/source";
 import { GAUGES, LEVELS } from "@/lib/physics/stations";
 import { clockString, download, fmtDur, fmtLen, fmtSci } from "@/lib/format";
 import { slRows } from "@/lib/sim/derive";
@@ -11,6 +11,8 @@ import { useSim } from "@/lib/sim/store";
 import { KV, LevelPill, Section } from "@/components/ui/KV";
 import { Chart, PALETTE } from "@/components/charts/Chart";
 import { mapApi } from "./MapView";
+import { CustomSourceControls, ZoneSelect } from "./SourcesPanel";
+import { SOURCE_BOUNDS } from "@/lib/physics/sources";
 import { useT } from "@/i18n/client";
 import { fmt } from "@/i18n/config";
 
@@ -40,27 +42,10 @@ export function ModelPanel() {
           ))}
         </select>
         <p className="note mt-2">{S.scenarios[sc.id].note}</p>
-        {params.scen === "whatif" && (
-          <div className="mt-2.5">
-            <label className="note block mb-1">{M.preset}</label>
-            <select
-              className="field w-full"
-              value=""
-              onChange={(e) => {
-                const p = WHATIF_PRESETS.find((x) => x.id === e.target.value);
-                if (p) setParams({ lat: p.lat, lon: p.lon, M: p.M, mech: p.mech, strike: p.strike });
-              }}
-              aria-label={M.preset}
-            >
-              <option value="">{M.choosePreset}</option>
-              {WHATIF_PRESETS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {(S.presets as Record<string, string>)[p.id] ?? p.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div className="mt-2.5">
+          <label className="note mb-1 block">{S.sources.catalogue}</label>
+          <ZoneSelect />
+        </div>
       </Section>
 
       <Section title={M.source}>
@@ -97,20 +82,20 @@ export function ModelPanel() {
                 className="field w-[5.5rem]"
                 type="number"
                 step={0.1}
-                min={DOM.lat0 + 3}
-                max={DOM.lat1 - 3}
+                min={SOURCE_BOUNDS.lat0}
+                max={SOURCE_BOUNDS.lat1}
                 value={params.lat}
-                onChange={(e) => setParams({ lat: Math.max(DOM.lat0 + 3, Math.min(DOM.lat1 - 3, +e.target.value)) })}
+                onChange={(e) => setParams({ lat: Math.max(SOURCE_BOUNDS.lat0, Math.min(SOURCE_BOUNDS.lat1, +e.target.value)) })}
                 aria-label={M.latAria}
               />
               <input
                 className="field w-[5.5rem]"
                 type="number"
                 step={0.1}
-                min={DOM.lon0 + 3}
-                max={DOM.lon1 - 3}
+                min={SOURCE_BOUNDS.lon0}
+                max={SOURCE_BOUNDS.lon1}
                 value={params.lon}
-                onChange={(e) => setParams({ lon: Math.max(DOM.lon0 + 3, Math.min(DOM.lon1 - 3, +e.target.value)) })}
+                onChange={(e) => setParams({ lon: Math.max(SOURCE_BOUNDS.lon0, Math.min(SOURCE_BOUNDS.lon1, +e.target.value)) })}
                 aria-label={M.lonAria}
               />
             </div>
@@ -121,6 +106,9 @@ export function ModelPanel() {
           )}
           <label className="text-muted">{M.depth}</label>
           <span className="note">{M.depthNote}</span>
+        </div>
+        <div className="mt-3">
+          <CustomSourceControls />
         </div>
         {params.scen === "actual" && (
           <p className="note mt-2.5">{M.actualNote}</p>

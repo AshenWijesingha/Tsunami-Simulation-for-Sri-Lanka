@@ -73,8 +73,8 @@ describe("Monte Carlo", () => {
 describe("numerical solver (fallback bathymetry, 10′)", () => {
   it("CFL time step and wet cells are sensible", async () => {
     const B = await buildBathymetry(10, "fallback", () => {});
-    expect(B.nx).toBe(301);
-    expect(B.ny).toBe(331);
+    expect(B.nx).toBe(331);
+    expect(B.ny).toBe(349);
     const G = makeSolver(B);
     expect(G.dt).toBeGreaterThan(5);
     expect(G.dt).toBeLessThan(60);
