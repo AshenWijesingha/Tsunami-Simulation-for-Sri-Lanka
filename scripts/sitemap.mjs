@@ -25,12 +25,25 @@ const pages = [
   ...chapters.map((s) => [`learn/${s}`, "0.7", "monthly"]),
 ];
 const lastmod = (process.env.SITEMAP_LASTMOD || new Date().toISOString()).slice(0, 10);
+// English lives at the root; Sinhala and Tamil under /si and /ta. Every URL lists all three as hreflang alternates.
+const LOCALES = [
+  ["en", ""],
+  ["si", "si/"],
+  ["ta", "ta/"],
+];
+const url = (pre, p) => `${site}/${pre}${p ? p + "/" : ""}`;
+const alts = (p) =>
+  LOCALES.map(([l, pre]) => `<xhtml:link rel="alternate" hreflang="${l}" href="${url(pre, p)}"/>`).join("") +
+  `<xhtml:link rel="alternate" hreflang="x-default" href="${url("", p)}"/>`;
+const entries = pages.flatMap(([p, pr, cf]) =>
+  LOCALES.map(
+    ([, pre]) => `  <url><loc>${url(pre, p)}</loc>${alts(p)}<lastmod>${lastmod}</lastmod><changefreq>${cf}</changefreq><priority>${pr}</priority></url>`,
+  ),
+);
 const xml =
-  '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-  pages
-    .map(([p, pr, cf]) => `  <url><loc>${site}/${p ? p + "/" : ""}</loc><lastmod>${lastmod}</lastmod><changefreq>${cf}</changefreq><priority>${pr}</priority></url>`)
-    .join("\n") +
+  '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n' +
+  entries.join("\n") +
   "\n</urlset>\n";
 writeFileSync("public/sitemap.xml", xml);
 writeFileSync("public/robots.txt", `User-agent: *\nAllow: /\n\nSitemap: ${site}/sitemap.xml\n`);
-console.log(`sitemap: ${pages.length} URLs for ${site}`);
+console.log(`sitemap: ${entries.length} URLs for ${site}`);

@@ -30,6 +30,8 @@ interface SimStore {
   /** Bumped every time the live field changes (drives map redraws). */
   frame: number;
   history: RunSummary[];
+  /** Map pointer position for the point readout (null when the pointer is off the map). */
+  hover: { lat: number; lon: number } | null;
   setParams(p: Partial<Params>): void;
   setScenario(s: ScenarioId, opts?: { keep?: boolean; run?: boolean }): void;
   runModel(): Promise<void>;
@@ -77,6 +79,7 @@ export const useSim = create<SimStore>((set, get) => ({
   elev: {},
   frame: 0,
   history: [],
+  hover: null,
 
   set: (k, v) => set({ [k]: v } as Partial<SimStore>),
 

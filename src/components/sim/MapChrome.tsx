@@ -7,29 +7,38 @@ import { clockString, fmtLen } from "@/lib/format";
 import { colorbarGradient, colorbarInfo } from "@/lib/sim/render";
 import { liveMaxAbs, live, useSim, type Layer } from "@/lib/sim/store";
 import { slRows } from "@/lib/sim/derive";
+import { fmt } from "@/i18n/config";
+import { useT } from "@/i18n/client";
 
-const LAYERS: { k: Layer; label: React.ReactNode; key: string }[] = [
-  { k: "eta", label: "η(t) sea surface", key: "1" },
-  { k: "max", label: <>η<sub>max</sub></>, key: "2" },
-  { k: "tt", label: "Travel time", key: "3" },
-  { k: "bathy", label: "Bathymetry", key: "4" },
-  { k: "off", label: "Off", key: "5" },
+const LAYERS: { k: Layer; key: string }[] = [
+  { k: "eta", key: "1" },
+  { k: "max", key: "2" },
+  { k: "tt", key: "3" },
+  { k: "bathy", key: "4" },
+  { k: "off", key: "5" },
 ];
 
 export function LayerBar() {
+  const t = useT();
   const layer = useSim((s) => s.layer);
   const set = useSim((s) => s.set);
   return (
-    <div className="glass absolute left-2.5 top-2.5 z-[5] flex gap-0.5 p-1 max-w-[calc(100%-260px)] max-lg:max-w-[calc(100%-64px)] max-lg:overflow-x-auto" role="toolbar" aria-label="Map layer">
+    <div className="glass absolute left-2.5 top-2.5 z-[5] flex gap-0.5 p-1 max-w-[calc(100%-260px)] max-lg:max-w-[calc(100%-64px)] max-lg:overflow-x-auto" role="toolbar" aria-label={t.sim.layers.aria}>
       {LAYERS.map((l) => (
         <button
           key={l.k}
           onClick={() => set("layer", l.k)}
-          title={`Shortcut: ${l.key}`}
+          title={fmt(t.sim.layers.shortcut, { k: l.key })}
           aria-pressed={layer === l.k}
           className={`whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[0.8rem] font-semibold ${layer === l.k ? "bg-accent-soft text-accent" : "text-fg-2 hover:bg-panel-2"}`}
         >
-          {l.label}
+          {l.k === "max" ? (
+            <>
+              η<sub>max</sub>
+            </>
+          ) : (
+            t.sim.layers[l.k]
+          )}
         </button>
       ))}
     </div>
@@ -37,6 +46,7 @@ export function LayerBar() {
 }
 
 export function Colorbar() {
+  const t = useT();
   const layer = useSim((s) => s.layer);
   const run = useSim((s) => s.run);
   const scaleMul = useSim((s) => s.scaleMul);
@@ -45,7 +55,7 @@ export function Colorbar() {
   if (!info) return null;
   return (
     <div className="glass absolute bottom-[104px] left-2.5 z-[5] w-[236px] px-2.5 py-2 text-[0.75rem] max-lg:bottom-[150px] max-lg:w-[180px]">
-      <div className="font-bold text-fg">{info.title}</div>
+      <div className="font-bold text-fg">{t.sim.colorbar[layer as "eta" | "max" | "tt" | "bathy"] ?? info.title}</div>
       <div className="my-1.5 h-3 rounded" style={{ background: colorbarGradient(layer) }} />
       <div className="flex justify-between tabular-nums text-muted">
         <span>{info.lo}</span>
@@ -56,7 +66,7 @@ export function Colorbar() {
         <div className="mt-1.5 flex gap-1 max-lg:hidden">
           {[0.25, 0.5, 1, 2, 4].map((v) => (
             <button key={v} onClick={() => set("scaleMul", v)} className={`btn !min-h-0 !px-1.5 !py-0.5 !text-[0.72rem] ${scaleMul === v ? "btn-on" : ""}`}>
-              {v === 1 ? "auto" : v < 1 ? `×${v === 0.25 ? "¼" : "½"}` : `×${v}`}
+              {v === 1 ? t.sim.colorbar.auto : v < 1 ? `×${v === 0.25 ? "¼" : "½"}` : `×${v}`}
             </button>
           ))}
         </div>
@@ -66,6 +76,8 @@ export function Colorbar() {
 }
 
 export function Playbar() {
+  const tr = useT();
+  const P = tr.sim.play;
   const run = useSim((s) => s.run);
   const t = useSim((s) => s.t);
   const playing = useSim((s) => s.playing);
@@ -104,10 +116,10 @@ export function Playbar() {
   const ticks = useMemo(() => {
     if (!run) return [];
     const ev: { t: number; l: string }[] = [];
-    if (run.params.scen === "actual") ev.push({ t: 65, l: "Bulletin 17:41" });
+    if (run.params.scen === "actual") ev.push({ t: 65, l: P.tickBulletin });
     const rows = slRows(run).filter((r) => Number.isFinite(r.q.etaShore));
-    if (rows.length) ev.push({ t: rows.reduce((a, b) => (b.q.etaShore < a.q.etaShore ? b : a)).q.etaShore, l: "1st arrival SL" });
-    for (const [n, l] of [["Colombo", "Colombo"], ["Trincomalee", "Trinco"]]) {
+    if (rows.length) ev.push({ t: rows.reduce((a, b) => (b.q.etaShore < a.q.etaShore ? b : a)).q.etaShore, l: P.tickFirst });
+    for (const [n, l] of [["Colombo", P.tickColombo], ["Trincomalee", P.tickTrinco]]) {
       const q = run.gauges.find((g) => g.name === n);
       if (q && Number.isFinite(q.etaShore)) ev.push({ t: q.etaShore, l });
     }
@@ -116,7 +128,7 @@ export function Playbar() {
     const out: typeof ev = [];
     for (const e of ev) if (!out.length || (e.t - out[out.length - 1].t) / run.params.dur > 0.11) out.push(e);
     return out;
-  }, [run]);
+  }, [run, P]);
 
   const maxEta = run ? liveMaxAbs() : 0;
   const step = live.n;
@@ -124,16 +136,16 @@ export function Playbar() {
   return (
     <div className="glass absolute bottom-6 left-2.5 right-2.5 z-[5] flex items-center gap-3.5 px-3 py-2 max-lg:flex-wrap max-lg:gap-2">
       <div className="flex items-center gap-1.5">
-        <button className="btn btn-primary h-9 w-11 !p-0 text-base" onClick={() => setPlaying(!playing)} disabled={!run} title="Play / pause (Space)" aria-label={playing ? "Pause" : "Play"}>
+        <button className="btn btn-primary h-9 w-11 !p-0 text-base" onClick={() => setPlaying(!playing)} disabled={!run} title={P.playTitle} aria-label={playing ? P.pause : P.play}>
           {playing ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
         </button>
-        <button className="btn h-9 !px-2.5" onClick={() => { setPlaying(false); seek(0); }} title="Rewind (R)" aria-label="Rewind">
+        <button className="btn h-9 !px-2.5" onClick={() => { setPlaying(false); seek(0); }} title={P.rewind} aria-label={P.rewind}>
           <RotateCcw size={17} />
         </button>
-        <select className="field h-9" value={speed} onChange={(e) => set("speed", +e.target.value)} aria-label="Playback speed">
+        <select className="field h-9" value={speed} onChange={(e) => set("speed", +e.target.value)} aria-label={P.speed}>
           {[2, 5, 10, 20, 40].map((v) => (
             <option key={v} value={v}>
-              {v} min/s
+              {fmt(P.perSec, { n: v })}
             </option>
           ))}
         </select>
@@ -153,17 +165,22 @@ export function Playbar() {
             ) : null,
           )}
         </div>
-        <input type="range" min={0} max={dur} step="any" value={t} onChange={(e) => seek(+e.target.value)} aria-label="Simulation time (minutes)" disabled={!run} />
+        <input type="range" min={0} max={dur} step="any" value={t} onChange={(e) => seek(+e.target.value)} aria-label={P.time} disabled={!run} />
         <div className="truncate text-[0.74rem] tabular-nums text-muted">
           {run
-            ? `Step ${step.toLocaleString()}/${run.nSteps.toLocaleString()} · max |η| ≈ ${fmtLen(maxEta)} · √(gh) front radius ≈ ${Math.round(C_KMMIN * t).toLocaleString()} km`
-            : "Run the model to animate the wave field."}
+            ? fmt(P.status, {
+                s: step.toLocaleString("en-US"),
+                n: run.nSteps.toLocaleString("en-US"),
+                m: fmtLen(maxEta),
+                r: Math.round(C_KMMIN * t).toLocaleString("en-US"),
+              })
+            : P.runFirst}
         </div>
       </div>
       <div className="ml-auto text-right">
         <div className="text-lg font-extrabold tabular-nums text-fg">{clockString(scen.clock.base, t, scen.clock.tz, true)}</div>
         <div className="text-[0.74rem] tabular-nums text-muted">
-          t = {t.toFixed(1)} min{run?.params.scen === "actual" && t >= 65 ? " · Bulletin issued" : ""}
+          t = {t.toFixed(1)} min{run?.params.scen === "actual" && t >= 65 ? P.bulletinIssued : ""}
         </div>
       </div>
     </div>

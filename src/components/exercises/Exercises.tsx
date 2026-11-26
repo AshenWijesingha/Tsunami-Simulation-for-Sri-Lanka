@@ -8,6 +8,8 @@ import { fmtDur, fmtLen } from "@/lib/format";
 import { slRows } from "@/lib/sim/derive";
 import { useSim } from "@/lib/sim/store";
 import { KV } from "@/components/ui/KV";
+import { useT } from "@/i18n/client";
+import { fmt } from "@/i18n/config";
 
 const KEY = "tsunamiLab.ex.v2";
 type Progress = { score: number; done: Record<string, boolean>; chBest: number };
@@ -70,21 +72,13 @@ const shuffle = <T,>(a: T[]) => {
   return b;
 };
 
-const QUIZ = [
-  { q: "Linear long-wave speed at h = 4,000 m is closest to:", a: ["198 m/s (≈ 713 km/h)", "63 m/s", "500 m/s", "1,500 m/s"], why: "c = √(gh) = √(9.81 × 4000) ≈ 198 m/s." },
-  { q: "Green's-law amplification from 4,000 m to 10 m depth is:", a: ["≈ 4.5", "≈ 20", "≈ 400", "≈ 2"], why: "(4000/10)^(1/4) = 400^0.25 ≈ 4.47." },
-  { q: "Why is the long-wave model less accurate for this M6.5 ridge source than for a 2004-type megathrust?", a: ["Its short wavelength (λ/h ≈ 8–9) makes frequency dispersion significant", "It cannot represent normal faults", "Coriolis effects dominate for small sources", "The CFL condition fails for small sources"], why: "kh ≈ 0.7 gives c_g/c₀ ≈ 0.8, so dispersion delays and lowers the main wave." },
-  { q: "For an explicit scheme, halving Δx (5′ instead of 10′) requires:", a: ["Roughly halving Δt, so about 8× the work in 2-D", "Keeping Δt unchanged", "Doubling Δt", "Quartering Δt only near the coast"], why: "CFL: Δt ∝ Δx. Cells ×4 and steps ×2 gives ≈ 8× the cost." },
-  { q: "Which mechanism generates tsunamis most efficiently for a given Mw?", a: ["Shallow thrust (dip-slip) faulting", "Strike-slip on a vertical fault", "Deep-focus (> 300 km) events", "Normal faulting at 300 km depth"], why: "Vertical seafloor displacement drives tsunami generation; shallow dip-slip maximises it." },
-  { q: "In Abe's relation log H = Mt − log Δ − 5.80, doubling distance changes H by:", a: ["A factor of ½", "A factor of 1/√2", "A factor of ¼", "No change"], why: "H ∝ Δ⁻¹, faster than the Δ^−1/2 of ideal cylindrical spreading." },
-  { q: "Why does the Kajiura factor 1/cosh(kh) reduce the initial sea-surface amplitude?", a: ["The water column filters seafloor deformation at scales shorter than about 3h", "Water compressibility absorbs the energy", "Bottom friction during rupture", "Coriolis deflection"], why: "Deformation at scales comparable to depth is smoothed at the surface (Kajiura, 1963)." },
-  { q: "Sri Lanka's east coast receives a weaker wave from this source mainly because:", a: ["It lies in the island's shadow; energy arrives by diffraction and refraction", "The east-coast shelf is deeper", "Tides are larger there", "The Maldives reflect the whole wave"], why: "Coasts facing away from the source receive only diffracted and refracted energy." },
-  { q: "In 2004, why were Sri Lanka's south and south-west coasts badly hit despite facing away from Sumatra?", a: ["Waves refracted and diffracted around the island and were trapped along the shelf", "A second earthquake occurred to the south", "The waves crossed the island overland", "Tidal resonance in the Gulf of Mannar"], why: "Field surveys (Liu et al., 2005) documented strong wrap-around and edge-wave effects." },
-  { q: "A fragility function P(damage | x) is most commonly modelled as:", a: ["A lognormal cumulative distribution in flow depth", "A linear function of distance from shore", "A step function at 1 m depth", "An exponential decay with elevation"], why: "Lognormal CDFs fitted to survey data are standard (Koshimura et al., 2009; Suppasri et al., 2013)." },
-];
 
 function Quiz({ onDone }: { onDone: (score: number, n: number) => void }) {
-  const qs = useMemo(() => QUIZ.map((q) => ({ ...q, ord: shuffle(q.a.map((t, ix) => ({ t, ix }))) })), []);
+  const tr = useT();
+  const Q = tr.exercises.quiz;
+  // The correct answer is always index 0 in the dictionary; display order is shuffled once per attempt.
+  const order = useMemo(() => Q.items.map((q) => shuffle(q.a.map((_, ix) => ix))), [Q.items]);
+  const qs = Q.items.map((q, k) => ({ ...q, ord: order[k].map((ix) => ({ t: q.a[ix], ix })) }));
   const [i, setI] = useState(0);
   const [sc, setSc] = useState(0);
   const [pick, setPick] = useState<number | null>(null);
@@ -92,7 +86,7 @@ function Quiz({ onDone }: { onDone: (score: number, n: number) => void }) {
     return (
       <div>
         <p className="text-lg">
-          Score: <b>{sc} / {qs.length}</b>
+          <b>{fmt(Q.score, { s: sc, n: qs.length })}</b>
         </p>
       </div>
     );
@@ -100,7 +94,7 @@ function Quiz({ onDone }: { onDone: (score: number, n: number) => void }) {
   return (
     <div>
       <div className="note">
-        Question {i + 1} of {qs.length} · score {sc}
+        {fmt(Q.progress, { i: i + 1, n: qs.length, s: sc })}
       </div>
       <p className="mt-2 font-semibold text-fg">{q.q}</p>
       <div className="mt-3 grid gap-1.5">
@@ -136,7 +130,7 @@ function Quiz({ onDone }: { onDone: (score: number, n: number) => void }) {
               if (ni >= qs.length) onDone(sc, qs.length);
             }}
           >
-            {i + 1 < qs.length ? "Next question" : "Finish"} <ArrowRight size={15} />
+            {i + 1 < qs.length ? Q.next : Q.finish} <ArrowRight size={15} />
           </button>
         </>
       )}
@@ -144,11 +138,11 @@ function Quiz({ onDone }: { onDone: (score: number, n: number) => void }) {
   );
 }
 
-const BUCK: [string, number, number][] = [
-  ["< 1 cm", 0, 0.01],
-  ["1–30 cm", 0.01, 0.3],
-  ["0.3–1 m", 0.3, 1],
-  ["> 1 m", 1, Infinity],
+const BUCK: [number, number][] = [
+  [0, 0.01],
+  [0.01, 0.3],
+  [0.3, 1],
+  [1, Infinity],
 ];
 
 function Predict({ onDone }: { onDone: (pts: number) => void }) {
@@ -158,6 +152,7 @@ function Predict({ onDone }: { onDone: (pts: number) => void }) {
   const [b, setB] = useState<number | null>(null);
   const [locked, setLocked] = useState(false);
   const scored = useRef(false);
+  const P = useT().exercises.predict;
   const have = run && run.params.scen === "actual";
   const col = have ? slRows(run).find((r) => r.q.name === "Colombo") : null;
 
@@ -173,7 +168,7 @@ function Predict({ onDone }: { onDone: (pts: number) => void }) {
     locked && col && b != null
       ? (() => {
           const amp = Math.max(col.a.H81, col.q.green1);
-          const bi = BUCK.findIndex((x) => amp >= x[1] && amp < x[2]);
+          const bi = BUCK.findIndex((x) => amp >= x[0] && amp < x[1]);
           const err = Math.abs(t - col.q.etaShore);
           const ts = Math.max(0, Math.round(100 - err * 1.5));
           return { amp, bi, err, ts, ok: bi === b };
@@ -192,36 +187,36 @@ function Predict({ onDone }: { onDone: (pts: number) => void }) {
       <KV
         className="mt-4"
         rows={[
-          ["Model arrival (numerical, shore)", fmtDur(col.q.etaShore)],
-          ["Your prediction", `${fmtDur(t)} (${Math.round(err)} min off)`],
-          ["Timing score", `${ts} / 100`],
-          ["Model amplitude (max of Abe-81, Green 1 m)", fmtLen(amp)],
-          ["Amplitude class", ok ? "✅ correct (+50)" : `❌ it was ${BUCK[bi][0]}`],
+          [P.kv.model, fmtDur(col.q.etaShore)],
+          [P.kv.yours, fmt(P.kv.off, { t: fmtDur(t), m: Math.round(err) })],
+          [P.kv.timing, `${ts} / 100`],
+          [P.kv.amp, fmtLen(amp)],
+          [P.kv.cls, ok ? `✅ ${P.kv.correct}` : `❌ ${fmt(P.kv.wrong, { b: P.buckets[bi] })}`],
         ]}
       />
     );
   }
   return (
     <div>
-      <p className="note">Scenario A. Colombo is about 3,150 km from the epicentre along the great circle. Predict before you look.</p>
+      <p className="note">{P.intro}</p>
       <label className="mt-3 block text-sm">
-        Arrival time at Colombo after origin: <b className="text-gold">{fmtDur(t)}</b>
+        {P.arrival} <b className="text-gold">{fmtDur(t)}</b>
         <input type="range" min={60} max={420} step={5} value={t} disabled={locked} onChange={(e) => setT(+e.target.value)} />
       </label>
-      <div className="mt-2 text-sm">Coastal amplitude class:</div>
+      <div className="mt-2 text-sm">{P.amplitude}</div>
       <div className="mt-1.5 flex flex-wrap gap-1.5">
-        {BUCK.map((x, i) => (
+        {BUCK.map((_, i) => (
           <button key={i} disabled={locked} className={`btn ${b === i ? "btn-on" : ""}`} onClick={() => setB(i)}>
-            {x[0]}
+            {P.buckets[i]}
           </button>
         ))}
       </div>
       {!locked && (
         <button className="btn btn-primary mt-4" disabled={b == null} onClick={lock}>
-          Lock in & verify
+          {P.lock}
         </button>
       )}
-      {locked && !col && <p className="note mt-3">{running ? "Running the numerical model…" : "Waiting for the model…"}</p>}
+      {locked && !col && <p className="note mt-3">{running ? P.running : P.waiting}</p>}
       {result}
     </div>
   );
@@ -234,18 +229,19 @@ function Decision({ onDone }: { onDone: (ok: boolean) => void }) {
   const maxT = Math.max(...TOWNS.map((t) => analyticTown(t, srcThrust).H89));
   const first = Math.min(...TOWNS.map((t) => analyticTown(t, src).eta));
   const [pick, setPick] = useState<string | null>(null);
+  const D = useT().exercises.decision;
+  const [head, ...rest] = fmt(D.brief, { a: "\u0001", b: "\u0002", t: fmtDur(first) }).split(/(?<=SLT, t \+ 65 min\.)/);
+  const brief = (rest.length ? rest.join("") : head).split(/(\u0001|\u0002)/).map((part, i) =>
+    part === "\u0001" ? <b key={i}>{fmtLen(max)}</b> : part === "\u0002" ? <b key={i}>{fmtLen(maxT)}</b> : part,
+  );
   return (
     <div>
       <div className="callout callout-info">
-        <b>17:41 SLT, t + 65 min.</b> M6.5, depth 10 km, 17.78° S 65.82° E (Central Indian Ridge). Mechanism unknown. Your empirical estimate: max coastal Ht ≈{" "}
-        <b>{fmtLen(max)}</b> (normal), <b>{fmtLen(maxT)}</b> even if thrust. First arrival ≈ {fmtDur(first)}.
+        {rest.length ? <b>{head}</b> : null}
+        {brief}
       </div>
       <div className="mt-3 grid gap-1.5">
-        {[
-          ["none", "No Tsunami Threat"],
-          ["watch", "Tsunami Watch (stay alert)"],
-          ["warn", "Tsunami Warning (evacuate coast)"],
-        ].map(([k, l]) => (
+        {(["none", "watch", "warn"] as const).map((k) => (
           <button
             key={k}
             disabled={pick != null}
@@ -255,15 +251,15 @@ function Decision({ onDone }: { onDone: (ok: boolean) => void }) {
               onDone(k === "none");
             }}
           >
-            {l}
+            {D.options[k]}
           </button>
         ))}
       </div>
       {pick && (
         <p className="note mt-3">
           {pick === "none"
-            ? "✅ Matches Bulletin No. 02. Even the thrust upper bound is far below 0.3 m. A false alarm costs livelihoods and public trust."
-            : "❌ Over-warning. Even worst-case assumptions give millimetres. The Department of Meteorology issued No Tsunami Threat."}
+            ? `✅ ${D.right}`
+            : `❌ ${D.wrong}`}
         </p>
       )}
     </div>
@@ -271,6 +267,9 @@ function Decision({ onDone }: { onDone: (ok: boolean) => void }) {
 }
 
 function Challenge({ onDone }: { onDone: (total: number) => void }) {
+  const tr = useT();
+  const C = tr.exercises.challenge;
+  const G = tr.exercises.groups;
   const make = () => {
     const mechs: Mechanism[] = ["thrust", "thrust", "thrust", "normal", "strike"];
     const M = Math.round((7.0 + Math.random() * 2.3) * 10) / 10,
@@ -303,19 +302,19 @@ function Challenge({ onDone }: { onDone: (total: number) => void }) {
     (Object.keys(GROUPS) as CoastGroup[]).forEach((g) => {
       const ok = sel.has(g) === ch.need[g];
       cp += ok ? 30 : 0;
-      rows.push([GROUPS[g], (ch.need[g] ? "evacuate" : "stay") + (ok ? " ✓" : " ✗")]);
+      rows.push([G[g], (ch.need[g] ? C.kv.evacuate : C.kv.stay) + (ok ? " ✓" : " ✗")]);
     });
     const tp = Math.round((50 * Math.max(0, 45 - (Date.now() - ch.t0) / 1000)) / 45);
     const tot = lp + cp + tp;
     setRes({
       tot,
       rows: [
-        ["Correct level", `${{ none: "No threat", marine: "Marine", land: "Land" }[ch.lv as "none"]} (max Ht ${fmtLen(ch.maxH)})`],
-        ["Level points", `${lp} / 150`],
+        [C.kv.correct, fmt(C.kv.correctVal, { l: C.short[ch.lv as "none" | "marine" | "land"], h: fmtLen(ch.maxH) })],
+        [C.kv.levelPts, `${lp} / 150`],
         ...rows,
-        ["Coast points", `${cp} / 150`],
-        ["Speed bonus", `${tp} / 50`],
-        ["Total", `${tot} / 350`],
+        [C.kv.coastPts, `${cp} / 150`],
+        [C.kv.speed, `${tp} / 50`],
+        [C.kv.total, `${tot} / 350`],
       ],
     });
     onDone(tot);
@@ -330,27 +329,18 @@ function Challenge({ onDone }: { onDone: (total: number) => void }) {
   return (
     <div>
       <div className="callout callout-warn flex flex-wrap items-center justify-between gap-2">
-        <span>
-          <b>
-            M{ch.M.toFixed(1)} {MECH[ch.mech].label}
-          </b>{" "}
-          at 17.78° S, 65.82° E, depth 10 km (hypothetical).
-        </span>
-        <b className="tabular-nums">{res ? "—" : `${Math.ceil(left)} s left`}</b>
+        <span>{fmt(C.source, { m: ch.M.toFixed(1), mech: tr.sim.mech[ch.mech] })}</span>
+        <b className="tabular-nums">{res ? "—" : fmt(C.left, { s: Math.ceil(left) })}</b>
       </div>
-      <p className="mt-3 text-sm font-semibold">1 · Threat level</p>
+      <p className="mt-3 text-sm font-semibold">{C.level}</p>
       <div className="mt-1.5 flex flex-wrap gap-1.5">
-        {[
-          ["none", "No threat (< 0.3 m)"],
-          ["marine", "Marine (0.3–1 m)"],
-          ["land", "Land (≥ 1 m)"],
-        ].map(([k, l]) => (
+        {(["none", "marine", "land"] as const).map((k) => (
           <button key={k} disabled={!!res} className={`btn ${pick === k ? "btn-on" : ""}`} onClick={() => setPick(k)}>
-            {l}
+            {C.levels[k]}
           </button>
         ))}
       </div>
-      <p className="mt-3 text-sm font-semibold">2 · Evacuate coasts (Ht ≥ 1 m)</p>
+      <p className="mt-3 text-sm font-semibold">{C.coasts}</p>
       <div className="mt-1.5 flex flex-wrap gap-1.5">
         {(Object.keys(GROUPS) as CoastGroup[]).map((g) => (
           <button
@@ -364,19 +354,19 @@ function Challenge({ onDone }: { onDone: (total: number) => void }) {
               setSel(n);
             }}
           >
-            {GROUPS[g]}
+            {G[g]}
           </button>
         ))}
       </div>
       {!res ? (
         <button className="btn btn-primary mt-4 w-full" disabled={!pick} onClick={submit}>
-          Submit
+          {C.submit}
         </button>
       ) : (
         <>
           <KV className="mt-4" rows={res.rows} />
           <button className="btn btn-primary mt-3" onClick={next}>
-            Next round
+            {C.next}
           </button>
         </>
       )}
@@ -384,31 +374,28 @@ function Challenge({ onDone }: { onDone: (total: number) => void }) {
   );
 }
 
-const EXS = [
-  { id: "quiz", t: "Concept quiz (graduate level)", d: "10 questions on source physics, numerics, dispersion, shoaling and impact." },
-  { id: "pred", t: "Predict & verify", d: "Predict the Colombo arrival time and amplitude class, then check against the numerical model." },
-  { id: "call", t: "Operational decision at t + 65 min", d: "Issue the bulletin with only what forecasters knew at 17:41." },
-  { id: "challenge", t: "Forecaster challenge", d: "Random hypothetical sources at the bulletin epicentre. Set the threat level and coasts to evacuate in 45 s." },
-] as const;
+const EXS = ["quiz", "pred", "call", "challenge"] as const;
 
 export default function Exercises() {
   const { p, add, reset } = useProgress();
   const [open, setOpen] = useState<string | null>(null);
   const [key, setKey] = useState(0);
+  const X = useT().exercises;
+  const exs = EXS.map((id) => ({ id, t: X.list[id][0], d: X.list[id][1] }));
   return (
     <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
       <aside className="space-y-3 self-start lg:sticky lg:top-20">
         <div className="card p-4">
           <div className="flex items-center justify-between">
-            <div className="eyebrow">Your progress</div>
+            <div className="eyebrow">{X.progress}</div>
             <button className="btn !min-h-0 !px-2 !py-0.5 !text-xs" onClick={reset}>
-              Reset
+              {X.reset}
             </button>
           </div>
           <div className="mt-2 text-3xl font-extrabold tabular-nums">{p.score}</div>
-          <div className="note">points · challenge best {p.chBest} / 350 · saved on this device only</div>
+          <div className="note">{fmt(X.points, { b: p.chBest })}</div>
         </div>
-        {EXS.map((e) => (
+        {exs.map((e) => (
           <button
             key={e.id}
             onClick={() => {
@@ -418,7 +405,7 @@ export default function Exercises() {
             className={`card block w-full p-4 text-left ${open === e.id ? "!border-accent" : ""} ${p.done[e.id] ? "border-[color-mix(in_srgb,var(--ok)_50%,transparent)]" : ""}`}
           >
             <div className="font-bold text-fg">
-              {p.done[e.id] && <CircleCheck size={16} className="mr-1.5 inline -translate-y-px text-ok" aria-label="Completed" />}
+              {p.done[e.id] && <CircleCheck size={16} className="mr-1.5 inline -translate-y-px text-ok" aria-label={X.completed} />}
               {e.t}
             </div>
             <div className="note mt-1">{e.d}</div>
@@ -426,28 +413,28 @@ export default function Exercises() {
         ))}
       </aside>
       <div className="card min-h-[380px] p-6">
-        {!open && <p className="note">Choose an exercise on the left. The course chapters give everything you need; the simulator and analysis pages let you check your reasoning.</p>}
+        {!open && <p className="note">{X.choose}</p>}
         {open === "quiz" && (
           <>
-            <h2 className="mb-3 text-xl font-bold">Concept quiz</h2>
+            <h2 className="mb-3 text-xl font-bold">{X.quiz.title}</h2>
             <Quiz key={key} onDone={(s, n) => add(s * 10, s >= Math.ceil(n * 0.7) ? "quiz" : undefined)} />
           </>
         )}
         {open === "pred" && (
           <>
-            <h2 className="mb-3 text-xl font-bold">Predict & verify</h2>
+            <h2 className="mb-3 text-xl font-bold">{X.predict.title}</h2>
             <Predict key={key} onDone={(pts) => add(pts, "pred")} />
           </>
         )}
         {open === "call" && (
           <>
-            <h2 className="mb-3 text-xl font-bold">Operational decision at t + 65 min</h2>
+            <h2 className="mb-3 text-xl font-bold">{X.decision.title}</h2>
             <Decision key={key} onDone={(ok) => add(ok ? 80 : 0, ok ? "call" : undefined)} />
           </>
         )}
         {open === "challenge" && (
           <>
-            <h2 className="mb-3 text-xl font-bold">Forecaster challenge</h2>
+            <h2 className="mb-3 text-xl font-bold">{X.challenge.title}</h2>
             <Challenge key={key} onDone={(tot) => add(Math.round(tot / 5), "challenge", tot)} />
           </>
         )}

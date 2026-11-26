@@ -1,6 +1,6 @@
 "use client";
 import { Check, Keyboard, PanelRight, Share2 } from "lucide-react";
-import Link from "next/link";
+import Link from "@/i18n/Link";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SCENARIOS, type Mechanism, type ScenarioId } from "@/lib/physics/source";
@@ -10,14 +10,11 @@ import { CHAPTERS, chapterBySlug, type View } from "@/content/chapters";
 import MapView, { mapApi } from "./MapView";
 import { Colorbar, LayerBar, Playbar } from "./MapChrome";
 import { GaugesPanel, ModelPanel, ResultsPanel, RunsPanel } from "./panels";
+import { PointReadout, WaveHeightPanel } from "./WaveHeight";
+import { fmt, localePath } from "@/i18n/config";
+import { useI18n } from "@/i18n/client";
 
-const TABS = [
-  { k: "model", label: "Model" },
-  { k: "results", label: "Results" },
-  { k: "gauges", label: "Tide gauges" },
-  { k: "runs", label: "Runs" },
-  { k: "course", label: "Course" },
-] as const;
+const TABS = [{ k: "model" }, { k: "results" }, { k: "height" }, { k: "gauges" }, { k: "runs" }, { k: "course" }] as const;
 type Tab = (typeof TABS)[number]["k"];
 
 function applyView(v: View) {
@@ -46,6 +43,7 @@ const BADGE: Record<string, string> = {
 };
 
 export default function Simulator() {
+  const { locale, dict: t } = useI18n();
   const params = useSim((s) => s.params);
   const running = useSim((s) => s.running);
   const progress = useSim((s) => s.progress);
@@ -178,9 +176,9 @@ export default function Simulator() {
       q.set("lon", String(s.params.lon));
     }
     if (s.params.res === 5) q.set("res", "5");
-    const url = `${location.origin}${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/simulator/?${q}`;
+    const url = `${location.origin}${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}${localePath(locale, "/simulator")}/?${q}`;
     lastQuery.current = q.toString();
-    router.replace(`/simulator?${q}`, { scroll: false });
+    router.replace(`${localePath(locale, "/simulator")}?${q}`, { scroll: false });
     navigator.clipboard?.writeText(url).then(
       () => {
         setCopied(true);
@@ -191,13 +189,14 @@ export default function Simulator() {
   };
 
   const sc = SCENARIOS[params.scen];
+  const sct = t.sim.scenarios[params.scen];
 
   return (
     <div className="flex h-[calc(100dvh-64px)] min-h-[620px] flex-col max-lg:h-auto">
       {/* toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-elev px-3 py-2">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex overflow-hidden rounded-[10px] border border-line bg-panel-2" role="tablist" aria-label="Scenario">
+          <div className="inline-flex overflow-hidden rounded-[10px] border border-line bg-panel-2" role="tablist" aria-label={t.sim.scenarioAria}>
             {Object.values(SCENARIOS).map((s, i) => (
               <button
                 key={s.id}
@@ -206,23 +205,23 @@ export default function Simulator() {
                 onClick={() => params.scen !== s.id && useSim.getState().setScenario(s.id)}
                 className={`px-3 py-1.5 text-[0.82rem] font-bold ${i ? "border-l border-line" : ""} ${params.scen === s.id ? "bg-accent-soft text-accent" : "text-muted hover:text-fg"}`}
               >
-                {s.short}
+                {t.sim.scenarios[s.id].short}
               </button>
             ))}
           </div>
           <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.72rem] font-extrabold uppercase tracking-wide ${BADGE[sc.badge]}`}>
             <span className="h-2 w-2 rounded-full bg-current" />
-            {sc.status}
+            {sct.status}
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <button className="btn" onClick={share} title="Copy a permalink that reproduces this scenario">
-            {copied ? <Check size={16} /> : <Share2 size={16} />} {copied ? "Link copied" : "Share"}
+          <button className="btn" onClick={share} title={t.sim.shareTitle}>
+            {copied ? <Check size={16} /> : <Share2 size={16} />} {copied ? t.sim.linkCopied : t.sim.share}
           </button>
-          <button className="btn !px-2.5 max-lg:hidden" onClick={() => setPanel((v) => !v)} title="Show/hide side panel (P)" aria-pressed={panel}>
+          <button className="btn !px-2.5 max-lg:hidden" onClick={() => setPanel((v) => !v)} title={t.sim.togglePanel} aria-label={t.sim.togglePanel} aria-pressed={panel}>
             <PanelRight size={17} />
           </button>
-          <button className="btn !px-2.5" onClick={() => setHelp(true)} title="Keyboard shortcuts (?)">
+          <button className="btn !px-2.5" onClick={() => setHelp(true)} title={t.sim.shortcuts} aria-label={t.sim.shortcuts}>
             <Keyboard size={17} />
           </button>
         </div>
@@ -234,53 +233,59 @@ export default function Simulator() {
           <LayerBar />
           <Colorbar />
           <Playbar />
+          <PointReadout />
           {running && (
             <div className="absolute inset-0 z-20 grid place-items-center bg-[rgba(5,10,20,.45)] backdrop-blur-[2px]" role="status" aria-live="polite">
               <div className="card w-[min(440px,90%)] p-4">
-                <div className="font-bold text-fg">Running numerical model: {sc.label}</div>
+                <div className="font-bold text-fg">{fmt(t.sim.running, { s: sct.label })}</div>
                 <div className="my-2.5 h-2 overflow-hidden rounded-full bg-panel-2">
                   <i
                     className="block h-full bg-gradient-to-r from-accent to-accent-2 transition-[width]"
                     style={{ width: `${progress ? (progress.phase === "bathy" ? progress.f * 30 : 30 + progress.f * 70) : 0}%` }}
                   />
                 </div>
-                <div className="note">{progress?.text ?? "Preparing…"}</div>
-                <div className="note mt-1">Computed in a background thread; the page stays responsive.</div>
+                <div className="note">
+                  {progress
+                    ? `${progress.phase === "bathy" ? t.sim.phaseBathy : t.sim.phaseSolve} · ${Math.round(progress.f * 100)} %`
+                    : t.sim.preparing}
+                </div>
+                <div className="note mt-1">{t.sim.background}</div>
               </div>
             </div>
           )}
-          {error && <div className="callout callout-bad absolute left-3 right-3 top-16 z-20">Model error: {error}</div>}
+          {error && <div className="callout callout-bad absolute left-3 right-3 top-16 z-20">{fmt(t.sim.error, { e: error })}</div>}
         </div>
 
         {panel && (
-          <aside className="flex min-h-0 min-w-0 flex-col bg-panel" aria-label="Simulator panel">
+          <aside className="flex min-h-0 min-w-0 flex-col bg-panel" aria-label={t.sim.panelAria}>
             <nav className="flex flex-none gap-0.5 overflow-x-auto border-b border-line p-1.5" role="tablist">
-              {TABS.map((t) => (
+              {TABS.map((tb) => (
                 <button
-                  key={t.k}
+                  key={tb.k}
                   role="tab"
-                  aria-selected={tab === t.k}
-                  onClick={() => setTab(t.k)}
-                  className={`flex-1 whitespace-nowrap rounded-lg px-2 py-1.5 text-[0.82rem] font-bold ${tab === t.k ? "bg-accent-soft text-accent" : "text-muted hover:text-fg"}`}
+                  aria-selected={tab === tb.k}
+                  onClick={() => setTab(tb.k)}
+                  className={`flex-1 whitespace-nowrap rounded-lg px-2 py-1.5 text-[0.8rem] font-bold ${tab === tb.k ? "bg-accent-soft text-accent" : "text-muted hover:text-fg"}`}
                 >
-                  {t.label}
+                  {t.sim.tabs[tb.k]}
                 </button>
               ))}
             </nav>
             <div className="min-h-0 flex-1 overflow-auto">
               {tab === "model" && <ModelPanel />}
               {tab === "results" && <ResultsPanel />}
+              {tab === "height" && <WaveHeightPanel />}
               {tab === "gauges" && <GaugesPanel />}
               {tab === "runs" && <RunsPanel />}
               {tab === "course" && (
                 <div className="p-4">
-                  <p className="note mb-3">Each chapter sets up the scenario, layer and view for you. Read the full text in the course.</p>
+                  <p className="note mb-3">{t.sim.course.intro}</p>
                   <ol className="space-y-1.5">
                     {CHAPTERS.map((c) => (
                       <li key={c.slug} className="flex items-center justify-between gap-2 rounded-lg border border-line bg-panel-2 px-3 py-2">
                         <div className="min-w-0">
-                          <div className="eyebrow !text-[0.66rem] text-accent">{c.k}</div>
-                          <div className="truncate text-sm font-semibold text-fg">{c.title}</div>
+                          <div className="eyebrow !text-[0.66rem] text-accent">{t.chapters[c.slug as keyof typeof t.chapters].k}</div>
+                          <div className="truncate text-sm font-semibold text-fg">{t.chapters[c.slug as keyof typeof t.chapters].title}</div>
                         </div>
                         <div className="flex flex-none gap-1">
                           {c.sim && (
@@ -288,11 +293,11 @@ export default function Simulator() {
                                 applyChapter(c.slug);
                                 if (c.sim?.tab) setTab(c.sim.tab as Tab);
                               }}>
-                              Show
+                              {t.sim.course.show}
                             </button>
                           )}
                           <Link className="btn !min-h-0 !px-2 !py-1 !text-xs" href={`/learn/${c.slug}`}>
-                            Read
+                            {t.sim.course.read}
                           </Link>
                         </div>
                       </li>
@@ -306,20 +311,11 @@ export default function Simulator() {
       </div>
 
       {help && (
-        <div className="fixed inset-0 z-[3000] grid place-items-center bg-[rgba(3,8,18,.6)] p-4" onClick={() => setHelp(false)} role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+        <div className="fixed inset-0 z-[3000] grid place-items-center bg-[rgba(3,8,18,.6)] p-4" onClick={() => setHelp(false)} role="dialog" aria-modal="true" aria-label={t.sim.help.title}>
           <div className="card w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
-            <h3 className="mb-3 text-lg font-bold">Keyboard shortcuts</h3>
+            <h3 className="mb-3 text-lg font-bold">{t.sim.help.title}</h3>
             <div className="kv">
-              {[
-                ["Space", "Play / pause"],
-                ["R", "Rewind to t = 0"],
-                ["← / →", "Step 5 min back / forward"],
-                ["1–5", "Layer: η, ηmax, travel time, bathymetry, off"],
-                ["P", "Show / hide side panel"],
-                ["T / G", "3D terrain / globe view"],
-                ["B", "Basemap picker"],
-                ["?", "This help"],
-              ].map(([k, v]) => (
+              {t.sim.help.rows.map(([k, v]) => (
                 <Fragment key={k}>
                   <div>
                     <span className="kbd">{k}</span>
@@ -330,7 +326,7 @@ export default function Simulator() {
             </div>
             <div className="mt-4 text-right">
               <button className="btn btn-primary" onClick={() => setHelp(false)}>
-                Close
+                {t.sim.help.close}
               </button>
             </div>
           </div>

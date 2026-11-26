@@ -4,13 +4,15 @@ import { useMemo } from "react";
 import { C_KMMIN, C_PATH, DOM, DONDRA, GREEN10 } from "@/lib/physics/constants";
 import { fmtLat, fmtLon, hav } from "@/lib/physics/geo";
 import { abe81, abe89, buildSource, MECH, SCENARIOS, WHATIF_PRESETS, type Mechanism, type ScenarioId } from "@/lib/physics/source";
-import { GAUGES } from "@/lib/physics/stations";
+import { GAUGES, LEVELS } from "@/lib/physics/stations";
 import { clockString, download, fmtDur, fmtLen, fmtSci } from "@/lib/format";
 import { slRows } from "@/lib/sim/derive";
 import { useSim } from "@/lib/sim/store";
 import { KV, LevelPill, Section } from "@/components/ui/KV";
 import { Chart, PALETTE } from "@/components/charts/Chart";
 import { mapApi } from "./MapView";
+import { useT } from "@/i18n/client";
+import { fmt } from "@/i18n/config";
 
 /* ================= Model ================= */
 export function ModelPanel() {
@@ -23,21 +25,24 @@ export function ModelPanel() {
   const src = useMemo(() => buildSource(params), [params]);
   const dSL = hav(src.lat, src.lon, DONDRA.lat, DONDRA.lon);
   const editableLoc = params.scen === "whatif";
+  const t = useT();
+  const S = t.sim;
+  const M = S.model;
 
   return (
     <>
-      <Section title="Scenario">
-        <select className="field w-full" value={params.scen} onChange={(e) => setScenario(e.target.value as ScenarioId)} aria-label="Scenario">
+      <Section title={M.scenario}>
+        <select className="field w-full" value={params.scen} onChange={(e) => setScenario(e.target.value as ScenarioId)} aria-label={M.scenario}>
           {Object.values(SCENARIOS).map((s) => (
             <option key={s.id} value={s.id}>
-              {s.label}
+              {S.scenarios[s.id].label}
             </option>
           ))}
         </select>
-        <p className="note mt-2">{sc.note}</p>
+        <p className="note mt-2">{S.scenarios[sc.id].note}</p>
         {params.scen === "whatif" && (
           <div className="mt-2.5">
-            <label className="note block mb-1">Preset source</label>
+            <label className="note block mb-1">{M.preset}</label>
             <select
               className="field w-full"
               value=""
@@ -45,12 +50,12 @@ export function ModelPanel() {
                 const p = WHATIF_PRESETS.find((x) => x.id === e.target.value);
                 if (p) setParams({ lat: p.lat, lon: p.lon, M: p.M, mech: p.mech, strike: p.strike });
               }}
-              aria-label="Preset source"
+              aria-label={M.preset}
             >
-              <option value="">Choose a preset…</option>
+              <option value="">{M.choosePreset}</option>
               {WHATIF_PRESETS.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.label}
+                  {(S.presets as Record<string, string>)[p.id] ?? p.label}
                 </option>
               ))}
             </select>
@@ -58,14 +63,14 @@ export function ModelPanel() {
         )}
       </Section>
 
-      <Section title="Source parameters">
+      <Section title={M.source}>
         <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 text-sm">
-          <label className="text-muted" htmlFor="pM">Moment magnitude M<sub>w</sub></label>
+          <label className="text-muted" htmlFor="pM">{M.mw}</label>
           <div className="flex items-center gap-2">
             <input id="pM" type="range" min={6} max={9.3} step={0.1} value={params.M} disabled={sc.locked} onChange={(e) => setParams({ M: +e.target.value })} />
             <b className="w-9 tabular-nums">{params.M.toFixed(1)}</b>
           </div>
-          <label className="text-muted" htmlFor="pMech">Faulting mechanism</label>
+          <label className="text-muted" htmlFor="pMech">{M.mech}</label>
           <select
             id="pMech"
             className="field"
@@ -76,16 +81,16 @@ export function ModelPanel() {
               setParams({ mech, strike: mech === "strike" && params.scen !== "whatif" ? 60 : params.strike });
             }}
           >
-            <option value="normal">Normal (ridge segment)</option>
-            <option value="strike">Strike-slip (transform)</option>
-            <option value="thrust">Thrust (reverse)</option>
+            <option value="normal">{M.mechOptions.normal}</option>
+            <option value="strike">{M.mechOptions.strike}</option>
+            <option value="thrust">{M.mechOptions.thrust}</option>
           </select>
-          <label className="text-muted" htmlFor="pStrike">Strike (° from N)</label>
+          <label className="text-muted" htmlFor="pStrike">{M.strike}</label>
           <div className="flex items-center gap-2">
             <input id="pStrike" type="range" min={0} max={355} step={5} value={params.strike} onChange={(e) => setParams({ strike: +e.target.value })} />
             <b className="w-9 tabular-nums">{params.strike}</b>
           </div>
-          <label className="text-muted">Centroid</label>
+          <label className="text-muted">{M.centroid}</label>
           {editableLoc ? (
             <div className="flex items-center gap-1.5">
               <input
@@ -96,7 +101,7 @@ export function ModelPanel() {
                 max={DOM.lat1 - 3}
                 value={params.lat}
                 onChange={(e) => setParams({ lat: Math.max(DOM.lat0 + 3, Math.min(DOM.lat1 - 3, +e.target.value)) })}
-                aria-label="Latitude (°N, negative = south)"
+                aria-label={M.latAria}
               />
               <input
                 className="field w-[5.5rem]"
@@ -106,7 +111,7 @@ export function ModelPanel() {
                 max={DOM.lon1 - 3}
                 value={params.lon}
                 onChange={(e) => setParams({ lon: Math.max(DOM.lon0 + 3, Math.min(DOM.lon1 - 3, +e.target.value)) })}
-                aria-label="Longitude (°E)"
+                aria-label={M.lonAria}
               />
             </div>
           ) : (
@@ -114,34 +119,33 @@ export function ModelPanel() {
               {fmtLat(params.lat)}, {fmtLon(params.lon)}
             </span>
           )}
-          <label className="text-muted">Focal depth</label>
-          <span className="note">Shallow; deformation assumed to reach the seafloor</span>
+          <label className="text-muted">{M.depth}</label>
+          <span className="note">{M.depthNote}</span>
         </div>
         {params.scen === "actual" && (
-          <p className="note mt-2.5">
-            The bulletin gives no focal mechanism. The epicentre lies on the Central Indian Ridge, where events are typically normal faulting (spreading
-            segments) or strike-slip (transforms). Normal faulting is the default; thrust is a deliberate upper bound.
-          </p>
+          <p className="note mt-2.5">{M.actualNote}</p>
         )}
       </Section>
 
-      <Section title="Numerical settings">
+      <Section title={M.numerical}>
         <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 text-sm">
-          <label className="text-muted" htmlFor="pRes">Grid resolution</label>
+          <label className="text-muted" htmlFor="pRes">{M.res}</label>
           <select id="pRes" className="field" value={params.res} onChange={(e) => setParams({ res: +e.target.value as 10 | 5 })}>
-            <option value={10}>10′ (~18.5 km) · fast</option>
-            <option value={5}>5′ (~9.3 km) · fine</option>
+            <option value={10}>{M.res10}</option>
+            <option value={5}>{M.res5}</option>
           </select>
-          <label className="text-muted" htmlFor="pBathy">Bathymetry</label>
+          <label className="text-muted" htmlFor="pBathy">{M.bathy}</label>
           <select id="pBathy" className="field" value={params.bathy} onChange={(e) => setParams({ bathy: e.target.value as "auto" | "fallback" })}>
-            <option value="auto">Live ETOPO1 tiles, else fallback</option>
-            <option value="fallback">Idealised (offline fallback)</option>
+            <option value="auto">{M.bathyAuto}</option>
+            <option value="fallback">{M.bathyFallback}</option>
           </select>
-          <label className="text-muted" htmlFor="pDur">Simulated duration</label>
+          <label className="text-muted" htmlFor="pDur">{M.duration}</label>
           <select id="pDur" className="field" value={params.dur} onChange={(e) => setParams({ dur: +e.target.value })}>
-            <option value={300}>5 h</option>
-            <option value={420}>7 h</option>
-            <option value={540}>9 h</option>
+            {[300, 420, 540].map((v) => (
+              <option key={v} value={v}>
+                {fmt(M.hours, { n: v / 60 })}
+              </option>
+            ))}
           </select>
         </div>
         <button
@@ -150,54 +154,56 @@ export function ModelPanel() {
           disabled={running}
         >
           {running ? <Loader2 size={16} className="animate-spin" /> : dirty ? <RefreshCw size={16} /> : <Play size={16} fill="currentColor" />}
-          {running ? "Running…" : dirty ? "Parameters changed: re-run model" : "Run numerical model"}
+          {running ? M.runningBtn : dirty ? M.rerun : M.run}
         </button>
         {run && (
           <KV
             className="mt-3"
             rows={[
-              ["Grid", `${run.bathy.nx} × ${run.bathy.ny} = ${(run.bathy.nx * run.bathy.ny).toLocaleString()} cells (${run.params.res}′)`],
-              ["Wet cells", run.wetCount.toLocaleString()],
-              ["Δt (CFL 0.85)", `${run.dt} s`],
-              ["h_max", `${Math.round(run.hmax).toLocaleString()} m`],
-              ["Steps", run.nSteps.toLocaleString()],
-              ["Wall-clock (worker)", `${run.wall.toFixed(2)} s`],
-              ["Bathymetry", run.bathy.live ? "ETOPO1 (live tiles)" : "Idealised fallback"],
+              [M.kv.grid, fmt(M.kv.cells, { nx: run.bathy.nx, ny: run.bathy.ny, n: (run.bathy.nx * run.bathy.ny).toLocaleString("en-US"), r: run.params.res })],
+              [M.kv.wet, run.wetCount.toLocaleString("en-US")],
+              [M.kv.dt, `${run.dt} s`],
+              [M.kv.hmax, `${Math.round(run.hmax).toLocaleString("en-US")} m`],
+              [M.kv.steps, run.nSteps.toLocaleString("en-US")],
+              [M.kv.wall, `${run.wall.toFixed(2)} s`],
+              [M.kv.bathymetry, run.bathy.live ? M.kv.etopo : M.kv.fallback],
               [
-                "Source on grid",
-                run.ic.volF < 1 ? `widened to σ ${run.ic.sx.toFixed(1)}×${run.ic.sy.toFixed(1)} km (volume-conserving), peak ${fmtLen(run.ic.peak)}` : `resolved, peak ${fmtLen(run.ic.peak)}`,
+                M.kv.sourceGrid,
+                run.ic.volF < 1
+                  ? fmt(M.kv.widened, { a: run.ic.sx.toFixed(1), b: run.ic.sy.toFixed(1), p: fmtLen(run.ic.peak) })
+                  : fmt(M.kv.resolved, { p: fmtLen(run.ic.peak) }),
               ],
             ]}
           />
         )}
       </Section>
 
-      <Section title="Derived source (scaling relations)">
+      <Section title={M.derived}>
         <KV
           rows={[
-            ["Rupture length L", `${src.L.toFixed(1)} km${src.prescribedLW ? " (prescribed)" : ""}`],
-            ["Rupture width W", `${src.W.toFixed(1)} km${src.prescribedLW ? " (prescribed)" : ""}`],
-            ["Seismic moment M₀", `${fmtSci(src.Mo)} N·m`],
-            ["Mean slip D = M₀/(μLW)", `${src.D.toFixed(2)} m`],
-            [`Vertical seafloor displacement (κ = ${MECH[src.mech].k})`, fmtLen(src.uplift)],
-            ["Kajiura factor 1/cosh(kh)", src.kaj.toFixed(3)],
-            ["Initial sea-surface amplitude A₀", fmtLen(src.A0)],
-            ["Tsunami magnitude Mₜ (est.)", src.Mt.toFixed(2)],
+            [M.dkv.L, `${src.L.toFixed(1)} km${src.prescribedLW ? ` ${M.dkv.prescribed}` : ""}`],
+            [M.dkv.W, `${src.W.toFixed(1)} km${src.prescribedLW ? ` ${M.dkv.prescribed}` : ""}`],
+            [M.dkv.Mo, `${fmtSci(src.Mo)} N·m`],
+            [M.dkv.D, `${src.D.toFixed(2)} m`],
+            [fmt(M.dkv.uplift, { k: MECH[src.mech].k }), fmtLen(src.uplift)],
+            [M.dkv.kaj, src.kaj.toFixed(3)],
+            [M.dkv.A0, fmtLen(src.A0)],
+            [M.dkv.Mt, src.Mt.toFixed(2)],
           ]}
         />
       </Section>
 
-      <Section title="Wave physics (path-averaged)">
+      <Section title={M.wave}>
         <KV
           rows={[
-            ["c = √(gh), h = 4,000 m", `${(C_PATH * 3.6).toFixed(0)} km/h (${C_PATH.toFixed(0)} m/s)`],
-            ["Characteristic wavelength λ₀", `${src.lam0.toFixed(0)} km`],
-            ["Period T = λ₀/c", `${(src.T / 60).toFixed(1)} min`],
-            ["Wavelength at h = 10 m", `${src.lamCoast.toFixed(2)} km`],
-            ["Distance to Dondra Head", `${Math.round(dSL).toLocaleString()} km`],
-            ["Analytic travel time", fmtDur(dSL / C_KMMIN)],
-            ["Green's-law gain 4,000 → 10 m", `× ${GREEN10.toFixed(2)}`],
-            ["Abe-81 H / Abe-89 Ht at Sri Lanka", `${fmtLen(abe81(dSL, src.Mt))} / ${fmtLen(abe89(dSL, src.Mt))}`],
+            [M.wkv.c, `${(C_PATH * 3.6).toFixed(0)} km/h (${C_PATH.toFixed(0)} m/s)`],
+            [M.wkv.lam, `${src.lam0.toFixed(0)} km`],
+            [M.wkv.T, `${(src.T / 60).toFixed(1)} min`],
+            [M.wkv.lamCoast, `${src.lamCoast.toFixed(2)} km`],
+            [M.wkv.dist, `${Math.round(dSL).toLocaleString("en-US")} km`],
+            [M.wkv.tt, fmtDur(dSL / C_KMMIN)],
+            [M.wkv.green, `× ${GREEN10.toFixed(2)}`],
+            [M.wkv.abe, `${fmtLen(abe81(dSL, src.Mt))} / ${fmtLen(abe89(dSL, src.Mt))}`],
           ]}
         />
       </Section>
@@ -212,7 +218,11 @@ export function ResultsPanel() {
   const elev = useSim((s) => s.elev);
   const { set, toggleGauge } = useSim.getState();
   const rows = useMemo(() => slRows(run), [run]);
-  if (!run) return <p className="p-4 note">Run the model to see results.</p>;
+  const t = useT();
+  const Rs = t.sim.results;
+  const place = (n: string) => t.places[n] ?? n;
+  const lvl = (k: keyof typeof t.levels) => t.levels[k];
+  if (!run) return <p className="p-4 note">{Rs.runFirst}</p>;
   const sc = SCENARIOS[run.params.scen];
   const withEta = rows.filter((r) => Number.isFinite(r.q.etaShore));
   const first = withEta.reduce((a, b) => (b.q.etaShore < a.q.etaShore ? b : a), withEta[0] ?? rows[0]);
@@ -223,53 +233,50 @@ export function ResultsPanel() {
 
   return (
     <>
-      <Section title="Sri Lanka: summary">
+      <Section title={Rs.summary}>
         <KV
           rows={[
-            ["Scenario", sc.label],
-            ["First arrival (numerical)", `${first.q.name}, ${fmtDur(first.q.etaShore)} → ${clockString(sc.clock.base, first.q.etaShore, sc.clock.tz)}`],
-            ["Max coastal estimate", `${fmtLen(mx.hz)} at ${mx.q.name}`],
-            ["Numerical max (offshore → 1 m)", `${fmtLen(Math.max(...rows.map((r) => r.q.max)))} → ${fmtLen(Math.max(...rows.map((r) => r.q.green1 || 0)))}`],
-            ["Empirical Abe-89 Ht (max)", fmtLen(Math.max(...rows.map((r) => r.a.H89)))],
-            ["Threat level (PTWC-style)", <LevelPill key="l" label={mx.lv.label} col={mx.lv.col} />],
+            [Rs.scenario, t.sim.scenarios[sc.id].label],
+            [Rs.first, `${place(first.q.name)}, ${fmtDur(first.q.etaShore)} → ${clockString(sc.clock.base, first.q.etaShore, sc.clock.tz)}`],
+            [Rs.maxCoastal, fmt(Rs.at, { h: fmtLen(mx.hz), s: place(mx.q.name) })],
+            [Rs.numMax, `${fmtLen(Math.max(...rows.map((r) => r.q.max)))} → ${fmtLen(Math.max(...rows.map((r) => r.q.green1 || 0)))}`],
+            [Rs.abeMax, fmtLen(Math.max(...rows.map((r) => r.a.H89)))],
+            [Rs.threat, <LevelPill key="l" label={lvl(mx.lv.k)[0]} col={mx.lv.col} />],
           ]}
         />
         <div className={`callout mt-3 ${mx.lv.k === "none" ? "callout-info" : "callout-warn"}`}>
           {run.params.scen === "actual" ? (
             <>
-              <b>Conclusion:</b> both the numerical and the empirical model predict coastal amplitudes in Sri Lanka of order {fmtLen(mx.hz)}, orders of
-              magnitude below the 0.3 m information threshold and far below the normal tidal range. This is consistent with Bulletin No. 02 (no tsunami
-              threat).
+              <b>{Rs.conclusionLabel}</b> {fmt(Rs.conclusion, { h: fmtLen(mx.hz) })}
             </>
           ) : run.params.scen === "v2004" ? (
             <>
-              <b>Validation:</b> compare the modelled first arrival on the east coast ({fmtDur(bat.q.etaShore)} at {bat.q.name}) with the observed ≈ 2 h
-              (Goff et al., 2006). Amplitudes are only indicative: the idealised uniform-slip source and linear coastal extrapolation cannot reproduce the
-              observed run-up of several metres to more than 10 m.
+              <b>{Rs.validationLabel}</b> {fmt(Rs.validation, { t: fmtDur(bat.q.etaShore), s: place(bat.q.name) })}
             </>
           ) : (
             <>
-              <b>Hypothetical:</b> M{run.src.M.toFixed(1)} {MECH[run.src.mech].label} gives {mx.lv.label.toLowerCase()} ({mx.lv.desc})
+              <b>{Rs.hypoLabel}</b>{" "}
+              {fmt(Rs.hypo, { m: run.src.M.toFixed(1), mech: t.sim.mech[run.src.mech], lvl: lvl(mx.lv.k)[0].toLowerCase(), desc: lvl(mx.lv.k)[1] })}
             </>
           )}
         </div>
       </Section>
 
-      <Section title="Coastal stations: numerical vs empirical">
+      <Section title={Rs.stations}>
         <div className="max-h-[360px] overflow-auto -mx-1">
           <table className="tbl">
             <thead>
               <tr>
-                <th>Station</th>
-                <th>Δ km</th>
-                <th>ETA num.</th>
-                <th>ETA anal.</th>
-                <th>η off.</th>
-                <th>h<sub>g</sub> m</th>
-                <th>η 1 m</th>
-                <th>H Abe81</th>
-                <th>H<sub>t</sub> Abe89</th>
-                <th>Level</th>
+                <th>{Rs.th.station}</th>
+                <th>{Rs.th.dist}</th>
+                <th>{Rs.th.etaNum}</th>
+                <th>{Rs.th.etaAnal}</th>
+                <th>{Rs.th.etaOff}</th>
+                <th>{Rs.th.hg}</th>
+                <th>{Rs.th.eta1}</th>
+                <th>{Rs.th.abe81}</th>
+                <th>{Rs.th.abe89}</th>
+                <th>{Rs.th.level}</th>
               </tr>
             </thead>
             <tbody>
@@ -284,8 +291,8 @@ export function ResultsPanel() {
                   tabIndex={0}
                   onKeyDown={(e) => e.key === "Enter" && mapApi.openGauge(r.q.name)}
                 >
-                  <td>{r.q.name}</td>
-                  <td>{Math.round(r.a.dist).toLocaleString()}</td>
+                  <td>{place(r.q.name)}</td>
+                  <td>{Math.round(r.a.dist).toLocaleString("en-US")}</td>
                   <td>{fmtDur(r.q.etaShore)}</td>
                   <td>{fmtDur(r.a.eta)}</td>
                   <td>{fmtLen(r.q.max)}</td>
@@ -294,29 +301,19 @@ export function ResultsPanel() {
                   <td>{fmtLen(r.a.H81)}</td>
                   <td>{fmtLen(r.a.H89)}</td>
                   <td>
-                    <LevelPill label={r.lv.label} col={r.lv.col} />
+                    <LevelPill label={lvl(r.lv.k)[0]} col={r.lv.col} />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <p className="note mt-2">
-          ETA num.: first |η| ≥ 5 % of the gauge maximum plus shelf transit to shore. η off.: max η at the offshore grid cell (depth h<sub>g</sub>). η 1 m:
-          Green&apos;s-law extrapolation to 1 m depth. H Abe81: empirical tide-gauge amplitude. H<sub>t</sub> Abe89: empirical local-mean run-up. Level uses the
-          larger of η 1 m and H<sub>t</sub>. Click a row to locate the station.
-        </p>
+        <p className="note mt-2">{Rs.tableNote}</p>
       </Section>
 
-      <Section title="Coastal exposure: elevation overlays">
+      <Section title={Rs.exposure}>
         <div className="flex flex-wrap gap-1.5">
-          {(
-            [
-              ["off", "Off"],
-              ["zones", "Low-lying land 0–10 m"],
-              ["inund", "Flooding at max run-up"],
-            ] as const
-          ).map(([k, l]) => (
+          {(["off", "zones", "inund"] as const).map((k) => (
             <button
               key={k}
               className={`btn ${overlay === k ? "btn-on" : ""}`}
@@ -325,27 +322,27 @@ export function ResultsPanel() {
                 if (k !== "off" && (mapApi.map?.getZoom() ?? 0) < 8.5) mapApi.fly(6.05, 80.3, 10);
               }}
             >
-              {l}
+              {Rs.overlays[k]}
             </button>
           ))}
         </div>
         <p className="note mt-2">
           {overlay === "off"
-            ? "Open terrain tiles (SRTM-based, about ±5 m vertical error). Zoom in on the coast, and turn on 3D terrain for relief."
+            ? Rs.overlayNote.off
             : overlay === "zones"
-              ? "Coastal land 0–2 m (red), 2–5 m (orange) and 5–10 m (yellow) above sea level."
+              ? Rs.overlayNote.zones
               : R < 0.01
-                ? `Max run-up for this scenario is ${fmtLen(R)}, far below DEM resolution, so no land is shaded.`
-                : `Blue: land hydraulically connected to the sea with z ≤ ${R.toFixed(2)} m, at most ${Math.round(Math.min(3000, Math.max(50, 250 * R)))} m inland. A bathtub approximation, not an inundation model.`}
+                ? fmt(Rs.overlayNote.tooSmall, { r: fmtLen(R) })
+                : fmt(Rs.overlayNote.inund, { r: R.toFixed(2), m: Math.round(Math.min(3000, Math.max(50, 250 * R))) })}
         </p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <button className="btn" onClick={() => mapApi.fitSL()}>Sri Lanka</button>
-          <button className="btn" onClick={() => mapApi.fly(6.03, 80.35, 9.5)}>South coast</button>
-          <button className="btn" onClick={() => mapApi.fly(7.6, 81.7, 9.2)}>East coast</button>
-          <button className="btn" onClick={() => mapApi.fitDomain()}>Whole domain</button>
+          <button className="btn" onClick={() => mapApi.fitSL()}>{Rs.zoom.sl}</button>
+          <button className="btn" onClick={() => mapApi.fly(6.03, 80.35, 9.5)}>{Rs.zoom.south}</button>
+          <button className="btn" onClick={() => mapApi.fly(7.6, 81.7, 9.2)}>{Rs.zoom.east}</button>
+          <button className="btn" onClick={() => mapApi.fitDomain()}>{Rs.zoom.domain}</button>
         </div>
         <p className="note mt-2">
-          Station elevations: {Object.keys(elev).length ? "Copernicus GLO-90 DEM via Open-Meteo (shoreline points can read 0–2 m)." : "approximate values (live DEM lookup unavailable or pending)."}
+          {Object.keys(elev).length ? Rs.elevDem : Rs.elevApprox}
         </p>
       </Section>
     </>
@@ -363,6 +360,8 @@ export function GaugeChart({ height = 380 }: { height?: number }) {
   const run = useSim((s) => s.run);
   const sel = useSim((s) => s.gaugeSel);
   const t = useSim((s) => s.t);
+  const tr = useT();
+  const G = tr.sim.gauges;
   if (!run) return null;
   const qs = run.gauges.filter((q) => sel.includes(q.name) && q.snap);
   let m = 0;
@@ -375,15 +374,15 @@ export function GaugeChart({ height = 380 }: { height?: number }) {
       height={height}
       xlim={[0, run.params.dur]}
       ylim={[-m * U.f * 1.1, m * U.f * 1.1]}
-      xlabel="Time after origin (min)"
-      ylabel={`η (${U.u})`}
+      xlabel={G.xlabel}
+      ylabel={fmt(G.ylabel, { u: U.u })}
       series={qs.map((q, i) => ({ x: q.t, y: Array.from(q.v, (v) => v * U.f), color: PALETTE[i % PALETTE.length], w: 1.8 }))}
       vlines={[
         ...qs.filter((q) => Number.isFinite(q.arr)).map((q) => ({ v: q.arr, color: PALETTE[qs.indexOf(q) % PALETTE.length] })),
-        { v: t, color: "var(--text)", label: "now" },
+        { v: t, color: "var(--text)", label: G.now },
       ]}
       legendPos="tl"
-      legend={qs.map((q, i) => ({ label: `${q.name} (h = ${Math.round(q.snap!.h)} m)`, color: PALETTE[i % PALETTE.length] }))}
+      legend={qs.map((q, i) => ({ label: `${tr.places[q.name] ?? q.name} (h = ${Math.round(q.snap!.h)} m)`, color: PALETTE[i % PALETTE.length] }))}
       fy={(v) => v.toFixed(Math.abs(v) < 10 && v % 1 ? 2 : 0)}
     />
   );
@@ -393,19 +392,21 @@ export function GaugesPanel() {
   const run = useSim((s) => s.run);
   const sel = useSim((s) => s.gaugeSel);
   const { toggleGauge, set } = useSim.getState();
+  const t = useT();
+  const G = t.sim.gauges;
   return (
     <>
-      <Section title="Synthetic tide gauges" right={<button className="btn !min-h-0 !py-0.5 !px-2 !text-xs" onClick={() => set("gaugeSel", [])}>Clear</button>}>
+      <Section title={G.title} right={<button className="btn !min-h-0 !py-0.5 !px-2 !text-xs" onClick={() => set("gaugeSel", [])}>{G.clear}</button>}>
         <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-[0.8rem]">
           {GAUGES.map((g) => (
             <label key={g.name} className="flex cursor-pointer items-center gap-1">
               <input type="checkbox" checked={sel.includes(g.name)} onChange={(e) => toggleGauge(g.name, e.target.checked)} />
-              <span className={g.sl ? "" : "text-muted"}>{g.name.replace(/,.*$/, "")}</span>
+              <span className={g.sl ? "" : "text-muted"}>{t.places[g.name] ?? g.name.replace(/,.*$/, "")}</span>
             </label>
           ))}
         </div>
-        {run ? <GaugeChart /> : <p className="note">Run the model first.</p>}
-        <p className="note mt-2">Dashed lines mark detected first arrivals; the vertical &ldquo;now&rdquo; line follows the playback clock. Click a station on the map to add it.</p>
+        {run ? <GaugeChart /> : <p className="note">{G.runFirst}</p>}
+        <p className="note mt-2">{G.note}</p>
       </Section>
       <ExportSection />
     </>
@@ -415,6 +416,7 @@ export function GaugesPanel() {
 export function ExportSection() {
   const run = useSim((s) => s.run);
   const rows = useMemo(() => slRows(run), [run]);
+  const E = useT().sim.export;
   if (!run) return null;
   const tag = `${run.params.scen}_M${run.src.M.toFixed(1)}_${run.src.mech}_${run.params.res}min`;
   const gaugesCsv = () => {
@@ -484,14 +486,14 @@ export function ExportSection() {
     download(`etamax_${tag}.asc`, s, "text/plain");
   };
   return (
-    <Section title="Export data">
+    <Section title={E.title}>
       <div className="flex flex-wrap gap-1.5">
-        <button className="btn" onClick={gaugesCsv}><Download size={15} /> Gauge time series (CSV)</button>
-        <button className="btn" onClick={townsCsv}><Download size={15} /> Station table (CSV)</button>
-        <button className="btn" onClick={meta}><Download size={15} /> Run metadata (JSON)</button>
-        <button className="btn" onClick={etaMaxAsc}><Download size={15} /> η<sub>max</sub> grid (ESRI ASCII)</button>
+        <button className="btn" onClick={gaugesCsv}><Download size={15} /> {E.gauges}</button>
+        <button className="btn" onClick={townsCsv}><Download size={15} /> {E.stations}</button>
+        <button className="btn" onClick={meta}><Download size={15} /> {E.meta}</button>
+        <button className="btn" onClick={etaMaxAsc}><Download size={15} /> {E.grid}</button>
       </div>
-      <p className="note mt-2">The ESRI ASCII grid opens directly in QGIS or ArcGIS (WGS 84, cell centres).</p>
+      <p className="note mt-2">{E.note}</p>
     </Section>
   );
 }
@@ -501,24 +503,26 @@ export function RunsPanel() {
   const history = useSim((s) => s.history);
   const { clearHistory } = useSim.getState();
   const stations = ["Galle", "Colombo", "Batticaloa", "Trincomalee"];
+  const t = useT();
+  const Ru = t.sim.runs;
   return (
     <>
-      <Section title="Run history" right={history.length ? <button className="btn !min-h-0 !py-0.5 !px-2 !text-xs" onClick={clearHistory}>Clear</button> : null}>
+      <Section title={Ru.title} right={history.length ? <button className="btn !min-h-0 !py-0.5 !px-2 !text-xs" onClick={clearHistory}>{Ru.clear}</button> : null}>
         {history.length === 0 ? (
-          <p className="note">Completed runs appear here so you can compare scenarios, resolutions and bathymetry sources.</p>
+          <p className="note">{Ru.empty}</p>
         ) : (
           <div className="max-h-[420px] overflow-auto -mx-1">
             <table className="tbl">
               <thead>
                 <tr>
-                  <th>Run</th>
-                  <th>Δt s</th>
-                  <th>Wall s</th>
-                  <th>1st arrival</th>
-                  <th>Max η 1 m</th>
-                  <th>Level</th>
+                  <th>{Ru.th.run}</th>
+                  <th>{Ru.th.dt}</th>
+                  <th>{Ru.th.wall}</th>
+                  <th>{Ru.th.first}</th>
+                  <th>{Ru.th.max}</th>
+                  <th>{Ru.th.level}</th>
                   {stations.map((s) => (
-                    <th key={s}>{s} ETA</th>
+                    <th key={s}>{fmt(Ru.th.eta, { s: t.places[s] ?? s })}</th>
                   ))}
                 </tr>
               </thead>
@@ -530,7 +534,7 @@ export function RunsPanel() {
                     <td>{h.wall.toFixed(1)}</td>
                     <td>{fmtDur(h.firstArrival)}</td>
                     <td>{fmtLen(h.maxGreen)}</td>
-                    <td>{h.level}</td>
+                    <td>{(() => { const k = LEVELS.find((l) => l.label === h.level)?.k; return k ? t.levels[k][0] : h.level; })()}</td>
                     {stations.map((s) => (
                       <td key={s}>{fmtDur(h.stations[s]?.eta ?? NaN)}</td>
                     ))}
@@ -541,12 +545,8 @@ export function RunsPanel() {
           </div>
         )}
       </Section>
-      <Section title="Convergence study">
-        <p className="note">
-          A credible numerical result needs a resolution check. Run the same scenario at 10′ and 5′ and compare. For the sub-grid M6.5 source the far-field
-          amplitude is <i>not</i> grid-converged (the source is widened to the grid scale), while arrival times typically change by only a few minutes.
-          Arrival times are governed by bathymetry; amplitudes by source resolution and dispersion.
-        </p>
+      <Section title={Ru.convTitle}>
+        <p className="note">{Ru.convText}</p>
       </Section>
     </>
   );

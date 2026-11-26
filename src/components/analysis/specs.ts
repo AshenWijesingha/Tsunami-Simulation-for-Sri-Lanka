@@ -139,7 +139,18 @@ export function dispersionNumbers(src: Source) {
 }
 
 /** 4 · Sensitivity to magnitude and mechanism at distance dkm. */
-export function sensitivitySpec(dkm: number, Mmark: number): ChartProps {
+export const SENS_LABELS_EN = {
+  xlabel: "Moment magnitude Mw",
+  ylabel: "Run-up height Ht at Sri Lanka (m)",
+  thrust: "Thrust",
+  normal: "Normal",
+  strike: "Strike-slip",
+  marine: "0.3 m marine",
+  land: "1 m land",
+  major: "3 m major",
+};
+
+export function sensitivitySpec(dkm: number, Mmark: number, L: typeof SENS_LABELS_EN = SENS_LABELS_EN): ChartProps {
   const Ms = lin(6, 9.3, 0.05);
   const hS = (M: number, mech: Mechanism) => Math.pow(10, M + MECH[mech].adj - 5.55 - Math.log10(dkm));
   return {
@@ -147,20 +158,20 @@ export function sensitivitySpec(dkm: number, Mmark: number): ChartProps {
     logy: true,
     xlim: [6, 9.3],
     ylim: [1e-4, 30],
-    xlabel: "Moment magnitude Mw",
-    ylabel: "Run-up height Ht at Sri Lanka (m)",
+    xlabel: L.xlabel,
+    ylabel: L.ylabel,
     series: (["thrust", "normal", "strike"] as Mechanism[]).map((mc, i) => ({ x: Ms, y: Ms.map((M) => hS(M, mc)), color: [C.s3, C.s1, C.s4][i] })),
     hlines: [
-      { v: 0.3, label: "0.3 m marine", color: C.warn },
-      { v: 1, label: "1 m land", color: C.orange },
-      { v: 3, label: "3 m major", color: C.bad },
+      { v: 0.3, label: L.marine, color: C.warn },
+      { v: 1, label: L.land, color: C.orange },
+      { v: 3, label: L.major, color: C.bad },
     ],
     vlines: [{ v: Mmark, label: `M${Mmark.toFixed(1)}`, color: C.text }],
     legendPos: "tl",
     legend: [
-      { label: "Thrust", color: C.s3 },
-      { label: "Normal", color: C.s1 },
-      { label: "Strike-slip", color: C.s4 },
+      { label: L.thrust, color: C.s3 },
+      { label: L.normal, color: C.s1 },
+      { label: L.strike, color: C.s4 },
     ],
     fx: (v) => v.toFixed(1),
     title: "Run-up sensitivity to magnitude and mechanism",

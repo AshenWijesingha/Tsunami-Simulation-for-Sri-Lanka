@@ -1,14 +1,17 @@
 "use client";
-import Link from "next/link";
+import Link from "@/i18n/Link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Menu, WavesHorizontal, X } from "lucide-react";
 import { NAV } from "@/lib/site";
+import { stripLocale } from "@/i18n/config";
+import { useT } from "@/i18n/client";
 
 const isActive = (path: string, href: string) => (href === "/" ? path === "/" : path === href || path.startsWith(href + "/"));
 
 export function SiteNav() {
-  const path = usePathname();
+  const path = stripLocale(usePathname() || "/");
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [openedAt, setOpenedAt] = useState(path);
   // Close the menu when the route changes (adjusting state during render).
@@ -25,7 +28,7 @@ export function SiteNav() {
 
   return (
     <>
-      <nav aria-label="Main" className="hidden lg:block">
+      <nav aria-label={t.nav.main} className="hidden lg:block">
         <ul className="flex items-center gap-0.5">
           {NAV.filter((n) => n.href !== "/").map((n) => {
             const a = isActive(path, n.href);
@@ -38,7 +41,7 @@ export function SiteNav() {
                     a ? "text-accent" : "text-fg-2 hover:bg-panel-2 hover:text-fg"
                   }`}
                 >
-                  {n.label}
+                  {t.nav.items[n.key][0]}
                   {a && <span aria-hidden className="absolute inset-x-2.5 -bottom-[13px] h-[2px] rounded-full bg-accent" />}
                 </Link>
               </li>
@@ -50,7 +53,7 @@ export function SiteNav() {
         className="btn btn-ghost !min-h-9 !w-9 !p-0 lg:hidden"
         aria-expanded={open}
         aria-controls="mobile-menu"
-        aria-label={open ? "Close menu" : "Open menu"}
+        aria-label={open ? t.nav.closeMenu : t.nav.openMenu}
         onClick={() => {
           setOpen((o) => !o);
           setOpenedAt(path);
@@ -76,8 +79,8 @@ export function SiteNav() {
                       <Icon size={18} />
                     </span>
                     <span>
-                      <span className={`block font-semibold ${a ? "text-accent" : "text-fg"}`}>{n.label}</span>
-                      <span className="block text-xs text-muted">{n.desc}</span>
+                      <span className={`block font-semibold ${a ? "text-accent" : "text-fg"}`}>{t.nav.items[n.key][0]}</span>
+                      <span className="block text-xs text-muted">{t.nav.items[n.key][1]}</span>
                     </span>
                   </Link>
                 </li>
@@ -92,11 +95,12 @@ export function SiteNav() {
 
 /** Header call to action; hidden on the simulator itself. */
 export function LaunchCta() {
-  const path = usePathname();
+  const path = stripLocale(usePathname() || "/");
+  const t = useT();
   if (path.startsWith("/simulator")) return null;
   return (
     <Link href="/simulator" className="btn btn-primary hidden !min-h-9 xl:inline-flex">
-      <WavesHorizontal size={16} /> Launch simulator
+      <WavesHorizontal size={16} /> {t.nav.launch}
     </Link>
   );
 }

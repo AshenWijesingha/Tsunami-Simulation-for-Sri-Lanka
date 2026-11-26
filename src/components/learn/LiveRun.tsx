@@ -1,6 +1,6 @@
 "use client";
 import { ArrowRight, Play } from "lucide-react";
-import Link from "next/link";
+import Link from "@/i18n/Link";
 import { SCENARIOS, type ScenarioId } from "@/lib/physics/source";
 import { fmtDur, fmtLen } from "@/lib/format";
 import { slRows } from "@/lib/sim/derive";
