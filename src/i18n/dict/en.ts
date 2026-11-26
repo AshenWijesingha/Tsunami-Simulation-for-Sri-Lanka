@@ -337,6 +337,8 @@ export const en = {
     shortcuts: "Keyboard shortcuts (?)",
     running: "Running numerical model: {s}",
     preparing: "Preparing…",
+    cancelRun: "Cancel",
+    skipTiles: "Skip download: use offline bathymetry",
     background: "Computed in a background thread; the page stays responsive.",
     error: "Model error: {e}",
     help: {

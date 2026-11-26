@@ -188,7 +188,7 @@ export default function Workbench() {
           name="monte-carlo"
           csv={mc ? () => "amplitude_m,eta_min\n" + Array.from(mc.amps, (a, i) => `${a.toExponential(5)},${mc.etas[i].toFixed(2)}`).join("\n") : undefined}
           actions={
-            <button className="btn btn !min-h-0-primary !py-1 !px-2.5 !text-xs" onClick={runMC}>
+            <button className="btn btn-primary !min-h-0 !py-1 !px-2.5 !text-xs" onClick={runMC}>
               <Play size={13} fill="currentColor" /> Run {cfg.n.toLocaleString()} samples
             </button>
           }

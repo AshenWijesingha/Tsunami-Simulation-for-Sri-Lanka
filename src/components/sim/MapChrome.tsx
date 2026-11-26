@@ -6,6 +6,7 @@ import { SCENARIOS } from "@/lib/physics/source";
 import { clockString, fmtLen } from "@/lib/format";
 import { colorbarGradient, colorbarInfo } from "@/lib/sim/render";
 import { liveMaxAbs, live, useSim, type Layer } from "@/lib/sim/store";
+import { playerBusy } from "@/lib/sim/player";
 import { slRows } from "@/lib/sim/derive";
 import { fmt } from "@/i18n/config";
 import { useT } from "@/i18n/client";
@@ -81,6 +82,8 @@ export function Playbar() {
   const run = useSim((s) => s.run);
   const t = useSim((s) => s.t);
   const playing = useSim((s) => s.playing);
+  // Re-render when the playback worker delivers a new field (step counter, max |η|).
+  useSim((s) => s.frame);
   const speed = useSim((s) => s.speed);
   const params = useSim((s) => s.params);
   const { seek, setPlaying, set } = useSim.getState();
@@ -96,6 +99,18 @@ export function Playbar() {
     const frame = (ts: number) => {
       const s = useSim.getState();
       if (!s.playing || !s.run) return;
+      // On slow devices the worker may still be computing the previous frame: wait for it so the
+      // clock and the drawn wave stay in step (playback slows down instead of skipping ahead).
+      if (playerBusy()) {
+        last = ts;
+        raf = requestAnimationFrame(frame);
+        return;
+      }
+      // About 30 updates per second: smooth to the eye, half the map repaints of 60 fps.
+      if (last != null && ts - last < 30) {
+        raf = requestAnimationFrame(frame);
+        return;
+      }
       if (last != null) {
         let nt = s.t + Math.min(0.1, (ts - last) / 1000) * s.speed;
         if (nt >= s.run.params.dur) {

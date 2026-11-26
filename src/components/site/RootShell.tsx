@@ -2,10 +2,6 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "@fontsource-variable/inter/wght.css";
 import "@fontsource-variable/source-serif-4/wght.css";
-import "@fontsource-variable/noto-sans-sinhala/wght.css";
-import "@fontsource-variable/noto-sans-tamil/wght.css";
-import "@fontsource-variable/noto-serif-sinhala/wght.css";
-import "@fontsource-variable/noto-serif-tamil/wght.css";
 import "katex/dist/katex.min.css";
 import "@/app/globals.css";
 import { SiteHeader } from "./SiteHeader";
@@ -57,10 +53,10 @@ export const viewport: Viewport = {
   ],
 };
 
-export function RootShell({ locale, children }: { locale: Locale; children: ReactNode }) {
+export function RootShell({ locale, children, className }: { locale: Locale; children: ReactNode; className?: string }) {
   const d = getDict(locale);
   return (
-    <html lang={LOCALE_INFO[locale].htmlLang} dir="ltr" suppressHydrationWarning>
+    <html lang={LOCALE_INFO[locale].htmlLang} dir="ltr" className={className} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <JsonLd data={[organizationLd(), websiteLd(locale)]} />

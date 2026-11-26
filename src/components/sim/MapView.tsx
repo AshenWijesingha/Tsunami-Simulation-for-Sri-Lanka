@@ -50,6 +50,35 @@ const BASEMAPS: Record<BasemapKey, { label: string; desc: string; sw: string; st
     style: () => rasterStyle("osm", ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], '© <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors', 19, "#aad3df"),
   },
 };
+/**
+ * Fallback basemap that needs no network for its land: Natural Earth coastlines bundled with the app
+ * (drawn under OpenStreetMap raster tiles, which cover them when they load).
+ */
+async function fallbackStyle(dark: boolean): Promise<StyleSpecification> {
+  const { REGION_LAND, SRI_LANKA_RINGS } = await import("@/lib/geo/coastlines");
+  const poly = (rings: [number, number][][]) => ({
+    type: "FeatureCollection" as const,
+    features: rings.map((r) => ({ type: "Feature" as const, properties: {}, geometry: { type: "Polygon" as const, coordinates: [[...r, r[0]]] } })),
+  });
+  const sea = dark ? "#0b1a2b" : "#aad3df",
+    land = dark ? "#26303b" : "#efe9dc",
+    line = dark ? "#55606d" : "#9aa7b0";
+  return {
+    version: 8,
+    sources: {
+      ne: { type: "geojson", data: poly(REGION_LAND), attribution: "Natural Earth" },
+      lk: { type: "geojson", data: poly(SRI_LANKA_RINGS) },
+      osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, maxzoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors' },
+    },
+    layers: [
+      { id: "bg", type: "background", paint: { "background-color": sea } },
+      { id: "ne", type: "fill", source: "ne", maxzoom: 7, paint: { "fill-color": land, "fill-outline-color": line } },
+      { id: "lk", type: "fill", source: "lk", paint: { "fill-color": land, "fill-outline-color": line } },
+      { id: "osm", type: "raster", source: "osm", paint: { "raster-opacity": dark ? 0.75 : 1 } },
+    ],
+  };
+}
+
 const DEM_ATTR = 'Terrain: <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank">Tilezen/Mapzen Terrain Tiles</a> (SRTM, ETOPO1 et al.)';
 
 /** Imperative API so panels (lecture chapters, tables) can steer the map. */
@@ -259,6 +288,12 @@ export default function MapView() {
   const epiRef = useRef<Marker | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [fallbackNote, setFallbackNote] = useState<string | null>(null);
+  // The notice is informative only: let it fade away by itself.
+  useEffect(() => {
+    if (!fallbackNote) return;
+    const id = setTimeout(() => setFallbackNote(null), 10000);
+    return () => clearTimeout(id);
+  }, [fallbackNote]);
   const roRef = useRef<ResizeObserver | null>(null);
   const [ready, setReady] = useState(false);
   const [styleGen, setStyleGen] = useState(0);
@@ -317,23 +352,21 @@ export default function MapView() {
       mapRef.current = map;
       mapApi.map = map;
       map.addControl(new ml.NavigationControl({ visualizePitch: true }), "top-right");
-      map.addControl(new ml.ScaleControl({ unit: "metric" }), "bottom-right");
-      let styleOK = false;
+      map.addControl(new ml.ScaleControl({ unit: "metric" }), "top-right");
       map.on("style.load", () => {
-        styleOK = true;
+        styleWait.current = false;
         setStyleGen((g) => g + 1);
       });
-      // If the remote vector style is blocked or offline, fall back to inline raster styles so the model field still shows.
-      setTimeout(() => {
-        if (!styleOK && mapRef.current === map) {
-          setFallbackNote(DICT.sim.map.fallback);
-          map.setStyle(BASEMAPS.osm.style(), { diff: false });
-        }
-      }, 8000);
+      styleWait.current = true;
+      armStyleTimeout(map);
       const ro = new ResizeObserver(() => map.resize());
       ro.observe(el.current);
       roRef.current = ro;
-      map.on("error", () => {});
+      // A remote style that fails to load (blocked, offline) switches straight to the bundled fallback
+      // instead of leaving an empty map until the timeout.
+      map.on("error", () => {
+        if (styleWait.current) switchToFallback(map);
+      });
       // Point readout: report the pointer (or tap) position to the store.
       const setHover = (lat: number, lon: number) => useSim.getState().set("hover", { lat, lon });
       map.on("mousemove", (e) => setHover(e.lngLat.lat, e.lngLat.lng));
@@ -415,6 +448,26 @@ export default function MapView() {
   }, []);
 
   // ---- basemap switching
+  const styleWait = useRef(false);
+  const styleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const darkRef = useRef(dark);
+  darkRef.current = dark;
+  function switchToFallback(map: MLMap) {
+    styleWait.current = false;
+    if (styleTimer.current) clearTimeout(styleTimer.current);
+    if (mapRef.current !== map) return;
+    setFallbackNote(DICT.sim.map.fallback);
+    void fallbackStyle(darkRef.current).then((st) => {
+      if (mapRef.current === map) map.setStyle(st, { diff: false });
+    });
+  }
+  function armStyleTimeout(map: MLMap) {
+    if (styleTimer.current) clearTimeout(styleTimer.current);
+    // Slow networks: give a remote style 6 s before falling back.
+    styleTimer.current = setTimeout(() => {
+      if (styleWait.current) switchToFallback(map);
+    }, 6000);
+  }
   const firstBm = useRef(true);
   useEffect(() => {
     const map = mapRef.current;
@@ -423,7 +476,13 @@ export default function MapView() {
       firstBm.current = false;
       return;
     }
-    map.setStyle(BASEMAPS[bm].style(), { diff: false });
+    const st = BASEMAPS[bm].style();
+    if (typeof st === "string") {
+      styleWait.current = true;
+      armStyleTimeout(map);
+    }
+    map.setStyle(st, { diff: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bm]);
 
   // ---- custom layers after each style load
@@ -486,23 +545,36 @@ export default function MapView() {
     const map = mapRef.current;
     const src = map?.getSource("field") as { play(): void; pause(): void } | undefined;
     if (!src) return;
+    // Upload the canvas exactly once per field update: play for one rendered frame, then pause.
+    // (Leaving the source playing would re-upload and repaint on every display frame.)
     try {
-      src.play();
       if (pokeT.current) clearTimeout(pokeT.current);
+      src.play();
+      map!.once("render", () => {
+        try {
+          src.pause();
+        } catch {}
+      });
+      // Safety net if no render happens (hidden tab): pause anyway.
       pokeT.current = setTimeout(() => {
         try {
           src.pause();
         } catch {}
-      }, 120);
+      }, 250);
     } catch {}
   }
 
   // ---- field redraw
   useEffect(() => {
     if (!fieldCanvas.current) return;
-    renderField(fieldCanvas.current, run, live.S?.eta ?? null, layer, scaleMul);
+    renderField(fieldCanvas.current, run, live.eta, layer, scaleMul, live.img);
     poke();
   }, [run, frame, layer, scaleMul, styleGen]);
+
+  // The worker paints the η layer at a given colour scale; ask again when it changes.
+  useEffect(() => {
+    useSim.getState().refreshFrame();
+  }, [layer, scaleMul]);
 
   // ---- epicentre, great-circle and popups
   useEffect(() => {

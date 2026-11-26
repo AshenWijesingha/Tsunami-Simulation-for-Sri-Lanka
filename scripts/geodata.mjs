@@ -80,7 +80,7 @@ const bbox = {
 const mainFull = lkPolys.reduce((a, p) => (p[0].length > a.length ? p[0] : a), []).map(([x, y]) => [r(x), r(y)]);
 
 // ---------- regional land (hero map) ----------
-const BOX = { west: 50, east: 100, south: -30, north: 25 };
+const BOX = { west: 45, east: 110, south: -35, north: 32 };
 const landFeat = topo.feature(land50, land50.objects.land);
 const landGeoms = landFeat.features ? landFeat.features.map((f) => f.geometry) : [landFeat.geometry];
 const landPolys = landGeoms.flatMap((g) => (g.type === "Polygon" ? [g.coordinates] : g.coordinates));

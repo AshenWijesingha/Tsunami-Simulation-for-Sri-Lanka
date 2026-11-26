@@ -21,6 +21,16 @@ A Next.js web application that grew out of a single-file lecture tool about the 
 
 Every page is also available in **Sinhala** (`/si/…`) and **Tamil** (`/ta/…`); English stays at the root.
 
+## Performance
+
+- **Two workers keep the page responsive.** The model run happens in `src/workers/sim.worker.ts`. Playback and seeking happen in `src/workers/player.worker.ts`, which holds the solver checkpoints, steps to the requested time and returns η plus the η layer already painted as RGBA. The main thread only draws.
+- **No backlog.** At most one seek is in flight (`src/lib/sim/player.ts`); while it runs, only the newest target is kept, so dragging the time slider never queues work.
+- **Playback stays in sync.** It runs at about 30 updates per second and waits for each frame, so the clock and the wave stay together on slow devices. The map uploads the field texture once per update.
+- **The page never hangs on the network.**
+  - Bathymetry tiles have a 20 s total budget, and after 3 s the overlay offers "Skip download" (offline bathymetry). Every run can be cancelled.
+  - A blocked basemap style switches at once to a bundled Natural Earth basemap, so the map is never blank.
+- **Sinhala and Tamil fonts** load through `next/font` only on `/si` and `/ta` pages, with the body fonts preloaded so text does not reflow.
+
 ## Source zones
 
 `src/lib/physics/sources.ts` lists every earthquake source zone in the model domain (50–105° E, 30° S–28° N) that can send a tsunami towards Sri Lanka. Each entry records:

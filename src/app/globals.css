@@ -137,8 +137,9 @@
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
-  --font-sans: "Inter Variable", "Noto Sans Sinhala Variable", "Noto Sans Tamil Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: "Source Serif 4 Variable", "Noto Serif Sinhala Variable", "Noto Serif Tamil Variable", "Iowan Old Style", Georgia, serif;
+  /* --font-si-* / --font-ta-* are set by next/font on /si and /ta pages only. */
+  --font-sans: "Inter Variable", var(--font-si-sans, "Noto Sans Sinhala"), var(--font-ta-sans, "Noto Sans Tamil"), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Source Serif 4 Variable", var(--font-si-serif, "Noto Serif Sinhala"), var(--font-ta-serif, "Noto Serif Tamil"), "Iowan Old Style", Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
 
@@ -680,4 +681,11 @@ input[type="range"] {
 :lang(ta) .eyebrow {
   text-transform: none;
   letter-spacing: 0;
+}
+
+/* Keep the map attribution above the playbar on phones, where the playbar spans the full width. */
+@media (max-width: 1023px) {
+  .maplibregl-ctrl-bottom-right {
+    bottom: 168px;
+  }
 }
