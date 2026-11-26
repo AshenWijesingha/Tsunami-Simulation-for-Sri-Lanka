@@ -1,4 +1,5 @@
 "use client";
+import { ArrowRight, CircleCheck } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { EPI } from "@/lib/physics/constants";
 import { buildSource, DEFAULT_PARAMS, MECH, type Mechanism } from "@/lib/physics/source";
@@ -135,7 +136,7 @@ function Quiz({ onDone }: { onDone: (score: number, n: number) => void }) {
               if (ni >= qs.length) onDone(sc, qs.length);
             }}
           >
-            {i + 1 < qs.length ? "Next →" : "Finish"}
+            {i + 1 < qs.length ? "Next question" : "Finish"} <ArrowRight size={15} />
           </button>
         </>
       )}
@@ -400,7 +401,7 @@ export default function Exercises() {
         <div className="card p-4">
           <div className="flex items-center justify-between">
             <div className="eyebrow">Your progress</div>
-            <button className="btn !px-2 !py-0.5 !text-xs" onClick={reset}>
+            <button className="btn !min-h-0 !px-2 !py-0.5 !text-xs" onClick={reset}>
               Reset
             </button>
           </div>
@@ -417,7 +418,7 @@ export default function Exercises() {
             className={`card block w-full p-4 text-left ${open === e.id ? "!border-accent" : ""} ${p.done[e.id] ? "border-[color-mix(in_srgb,var(--ok)_50%,transparent)]" : ""}`}
           >
             <div className="font-bold text-fg">
-              {p.done[e.id] ? "✅ " : ""}
+              {p.done[e.id] && <CircleCheck size={16} className="mr-1.5 inline -translate-y-px text-ok" aria-label="Completed" />}
               {e.t}
             </div>
             <div className="note mt-1">{e.d}</div>

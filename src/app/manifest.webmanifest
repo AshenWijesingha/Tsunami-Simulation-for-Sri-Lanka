@@ -1,0 +1,25 @@
+{
+  "name": "Indian Ocean Tsunami Lab",
+  "short_name": "Tsunami Lab",
+  "description": "Simulate Indian Ocean tsunamis in your browser, learn the science, and explore uncertainty and coastal impact in Sri Lanka.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#070f1e",
+  "theme_color": "#0A2463",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education", "science"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Simulator", "url": "simulator/", "description": "Run the tsunami model" },
+    { "name": "Course", "url": "learn/", "description": "12-chapter tsunami science course" },
+    { "name": "Impact", "url": "impact/", "description": "2004 impact and vulnerability research" }
+  ]
+}

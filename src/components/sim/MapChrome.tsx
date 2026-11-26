@@ -1,4 +1,5 @@
 "use client";
+import { Pause, Play, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { C_KMMIN } from "@/lib/physics/constants";
 import { SCENARIOS } from "@/lib/physics/source";
@@ -54,7 +55,7 @@ export function Colorbar() {
       {(layer === "eta" || layer === "max") && (
         <div className="mt-1.5 flex gap-1 max-lg:hidden">
           {[0.25, 0.5, 1, 2, 4].map((v) => (
-            <button key={v} onClick={() => set("scaleMul", v)} className={`btn !px-1.5 !py-0.5 !text-[0.72rem] ${scaleMul === v ? "btn-on" : ""}`}>
+            <button key={v} onClick={() => set("scaleMul", v)} className={`btn !min-h-0 !px-1.5 !py-0.5 !text-[0.72rem] ${scaleMul === v ? "btn-on" : ""}`}>
               {v === 1 ? "auto" : v < 1 ? `×${v === 0.25 ? "¼" : "½"}` : `×${v}`}
             </button>
           ))}
@@ -124,10 +125,10 @@ export function Playbar() {
     <div className="glass absolute bottom-6 left-2.5 right-2.5 z-[5] flex items-center gap-3.5 px-3 py-2 max-lg:flex-wrap max-lg:gap-2">
       <div className="flex items-center gap-1.5">
         <button className="btn btn-primary h-9 w-11 !p-0 text-base" onClick={() => setPlaying(!playing)} disabled={!run} title="Play / pause (Space)" aria-label={playing ? "Pause" : "Play"}>
-          {playing ? "❚❚" : "▶"}
+          {playing ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
         </button>
         <button className="btn h-9 !px-2.5" onClick={() => { setPlaying(false); seek(0); }} title="Rewind (R)" aria-label="Rewind">
-          ⟲
+          <RotateCcw size={17} />
         </button>
         <select className="field h-9" value={speed} onChange={(e) => set("speed", +e.target.value)} aria-label="Playback speed">
           {[2, 5, 10, 20, 40].map((v) => (

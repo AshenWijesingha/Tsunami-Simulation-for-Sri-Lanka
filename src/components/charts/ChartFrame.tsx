@@ -52,14 +52,14 @@ export function ChartFrame({
         <h3 className="font-bold text-fg text-[1.02rem]">{title}</h3>
         <div className="flex flex-wrap gap-1.5">
           {actions}
-          <button className="btn !py-1 !px-2 !text-xs" onClick={saveSvg} title="Download vector graphic">
+          <button className="btn !min-h-0 !py-1 !px-2 !text-xs" onClick={saveSvg} title="Download vector graphic">
             SVG
           </button>
-          <button className="btn !py-1 !px-2 !text-xs" onClick={savePng} title="Download image">
+          <button className="btn !min-h-0 !py-1 !px-2 !text-xs" onClick={savePng} title="Download image">
             PNG
           </button>
           {csv && (
-            <button className="btn !py-1 !px-2 !text-xs" onClick={() => download(name + ".csv", csv(), "text/csv")} title="Download underlying data">
+            <button className="btn !min-h-0 !py-1 !px-2 !text-xs" onClick={() => download(name + ".csv", csv(), "text/csv")} title="Download underlying data">
               CSV
             </button>
           )}

@@ -1,4 +1,5 @@
 "use client";
+import { Play } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Chart } from "@/components/charts/Chart";
@@ -187,8 +188,8 @@ export default function Workbench() {
           name="monte-carlo"
           csv={mc ? () => "amplitude_m,eta_min\n" + Array.from(mc.amps, (a, i) => `${a.toExponential(5)},${mc.etas[i].toFixed(2)}`).join("\n") : undefined}
           actions={
-            <button className="btn btn-primary !py-1 !px-2.5 !text-xs" onClick={runMC}>
-              ▶ Run {cfg.n.toLocaleString()} samples
+            <button className="btn btn !min-h-0-primary !py-1 !px-2.5 !text-xs" onClick={runMC}>
+              <Play size={13} fill="currentColor" /> Run {cfg.n.toLocaleString()} samples
             </button>
           }
           caption={

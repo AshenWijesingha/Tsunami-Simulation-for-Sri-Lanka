@@ -1,4 +1,5 @@
 "use client";
+import { Check, Keyboard, PanelRight, Share2 } from "lucide-react";
 import Link from "next/link";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -192,7 +193,7 @@ export default function Simulator() {
   const sc = SCENARIOS[params.scen];
 
   return (
-    <div className="flex h-[calc(100dvh-56px)] min-h-[620px] flex-col max-lg:h-auto">
+    <div className="flex h-[calc(100dvh-64px)] min-h-[620px] flex-col max-lg:h-auto">
       {/* toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-elev px-3 py-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -216,13 +217,13 @@ export default function Simulator() {
         </div>
         <div className="flex items-center gap-1.5">
           <button className="btn" onClick={share} title="Copy a permalink that reproduces this scenario">
-            {copied ? "✓ Link copied" : "🔗 Share"}
+            {copied ? <Check size={16} /> : <Share2 size={16} />} {copied ? "Link copied" : "Share"}
           </button>
           <button className="btn !px-2.5 max-lg:hidden" onClick={() => setPanel((v) => !v)} title="Show/hide side panel (P)" aria-pressed={panel}>
-            ◨
+            <PanelRight size={17} />
           </button>
           <button className="btn !px-2.5" onClick={() => setHelp(true)} title="Keyboard shortcuts (?)">
-            ⌨
+            <Keyboard size={17} />
           </button>
         </div>
       </div>
@@ -283,14 +284,14 @@ export default function Simulator() {
                         </div>
                         <div className="flex flex-none gap-1">
                           {c.sim && (
-                            <button className="btn !px-2 !py-1 !text-xs" onClick={() => {
+                            <button className="btn !min-h-0 !px-2 !py-1 !text-xs" onClick={() => {
                                 applyChapter(c.slug);
                                 if (c.sim?.tab) setTab(c.sim.tab as Tab);
                               }}>
                               Show
                             </button>
                           )}
-                          <Link className="btn !px-2 !py-1 !text-xs" href={`/learn/${c.slug}`}>
+                          <Link className="btn !min-h-0 !px-2 !py-1 !text-xs" href={`/learn/${c.slug}`}>
                             Read
                           </Link>
                         </div>

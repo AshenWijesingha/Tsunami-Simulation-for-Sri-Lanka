@@ -1,29 +1,11 @@
 "use client";
-import { useSyncExternalStore, type ReactNode } from "react";
+import { useSyncExternalStore } from "react";
+import { Monitor, Moon, Sun } from "lucide-react";
 
 type Mode = "system" | "light" | "dark";
 const ORDER: Mode[] = ["system", "light", "dark"];
-const ICON: Record<Mode, ReactNode> = {
-  system: (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-      <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor" />
-    </svg>
-  ),
-  light: (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-      <circle cx="8" cy="8" r="3.2" fill="currentColor" />
-      <g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-        <path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3 3l1.1 1.1M11.9 11.9 13 13M3 13l1.1-1.1M11.9 4.1 13 3" />
-      </g>
-    </svg>
-  ),
-  dark: (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-      <path d="M13.5 10.2A6 6 0 0 1 5.8 2.5a6 6 0 1 0 7.7 7.7z" fill="currentColor" />
-    </svg>
-  ),
-};
+const ICON = { system: Monitor, light: Sun, dark: Moon };
+const LABEL = { system: "System theme", light: "Light theme", dark: "Dark theme" };
 
 function subscribe(cb: () => void) {
   window.addEventListener("themechange", cb);
@@ -44,18 +26,19 @@ function readMode(): Mode {
 
 export function ThemeToggle() {
   const mode = useSyncExternalStore(subscribe, readMode, () => "system" as Mode);
-  const next = () => {
-    const m = ORDER[(ORDER.indexOf(mode) + 1) % ORDER.length];
+  const next = ORDER[(ORDER.indexOf(mode) + 1) % ORDER.length];
+  const Icon = ICON[mode];
+  const cycle = () => {
     try {
-      localStorage.setItem("theme", m);
+      localStorage.setItem("theme", next);
     } catch {}
-    if (m === "system") document.documentElement.removeAttribute("data-theme");
-    else document.documentElement.setAttribute("data-theme", m);
+    if (next === "system") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", next);
     window.dispatchEvent(new Event("themechange"));
   };
   return (
-    <button className="btn !px-2.5" onClick={next} title={`Theme: ${mode} (click to change)`} aria-label={`Theme: ${mode}`}>
-      {ICON[mode]}
+    <button className="btn btn-ghost !min-h-9 !w-9 !p-0" onClick={cycle} title={`${LABEL[mode]} (switch to ${LABEL[next].toLowerCase()})`} aria-label={`${LABEL[mode]}. Switch to ${LABEL[next].toLowerCase()}`}>
+      <Icon size={18} />
     </button>
   );
 }

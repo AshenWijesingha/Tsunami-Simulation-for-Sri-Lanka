@@ -1,15 +1,24 @@
 import type { Metadata } from "next";
+import { BookOpen } from "lucide-react";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { articleLd, pageMetadata } from "@/lib/seo";
 import Link from "next/link";
 import ImpactExplorer from "@/components/impact/ImpactExplorer";
 import { Container, PageHeader, Stat } from "@/components/ui/PageHeader";
 import { Eq } from "@/components/ui/Tex";
 import { TEX } from "@/content/equations";
 
-export const metadata: Metadata = {
-  title: "Impact & vulnerability",
-  description:
-    "What the 2004 Indian Ocean tsunami did to Sri Lanka, what research learned about vulnerability, how warning has changed since, which sources threaten Sri Lanka, and an interactive fragility-based impact explorer.",
-};
+const DESC =
+  "What the 2004 tsunami did to Sri Lanka, what research learned about vulnerability, how warning has changed, and an interactive fragility-based impact explorer.";
+
+export const metadata: Metadata = pageMetadata({
+  title: "2004 Tsunami Impact on Sri Lanka & Vulnerability",
+  description: DESC,
+  path: "/impact",
+  og: "impact",
+  type: "article",
+  keywords: ["2004 tsunami Sri Lanka", "tsunami impact", "tsunami vulnerability", "tsunami fragility curves", "Sri Lanka tsunami deaths"],
+});
 
 const TOC = [
   ["record", "The 2004 record"],
@@ -43,14 +52,26 @@ const SOURCES: { zone: string; dist: string; mech: string; hazard: string; note:
 export default function Page() {
   return (
     <>
+      <JsonLd
+        data={articleLd({
+          type: "Article",
+          headline: "From wave height to human impact: the 2004 tsunami in Sri Lanka and what research learned",
+          description: DESC,
+          path: "/impact",
+          og: "impact",
+          about: ["2004 Indian Ocean tsunami", "Sri Lanka", "Tsunami vulnerability", "Fragility functions", "Tsunami early warning"],
+        })}
+      />
       <PageHeader
+        crumbs={[{ name: "Impact", path: "/impact" }]}
+        icon={BookOpen}
         eyebrow="Impact & vulnerability"
         title="From wave height to human impact"
         lead="Hazard is only half of risk. This section reviews what the 2004 tsunami did to Sri Lanka, what researchers learned about why some places and people suffered far more than others, and lets you explore how a forecast wave height becomes an expected impact."
       >
         <nav className="mt-6 flex flex-wrap gap-1.5" aria-label="On this page">
           {TOC.map(([id, l]) => (
-            <a key={id} href={`#${id}`} className="btn !py-1 !text-xs">
+            <a key={id} href={`#${id}`} className="btn !min-h-0 !py-1 !text-xs">
               {l}
             </a>
           ))}
@@ -199,7 +220,7 @@ export default function Page() {
                     <td className="!whitespace-normal !text-left min-w-[280px]">{s.note}</td>
                     <td>
                       {s.link && (
-                        <Link href={s.link} className="btn !py-0.5 !px-2 !text-xs">
+                        <Link href={s.link} className="btn !min-h-0 !py-0.5 !px-2 !text-xs">
                           Simulate
                         </Link>
                       )}

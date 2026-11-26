@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { FlaskConical } from "lucide-react";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { articleLd, pageMetadata } from "@/lib/seo";
 import Link from "next/link";
 import { Container, PageHeader } from "@/components/ui/PageHeader";
 import { Eq, M } from "@/components/ui/Tex";
@@ -8,10 +11,17 @@ import { MECH } from "@/lib/physics/source";
 import { GAUGES, LEVELS, TOWNS } from "@/lib/physics/stations";
 import { CFL, SPONGE_CELLS } from "@/lib/physics/solver";
 
-export const metadata: Metadata = {
-  title: "Methods & model card",
-  description: "Governing equations, numerical scheme, source model, empirical relations, verification, validation, limitations and intended use of the Indian Ocean Tsunami Lab model.",
-};
+const DESC =
+  "Model card for the Indian Ocean Tsunami Lab: shallow-water equations, numerical scheme, source model, verification tests, 2004 validation and known limitations.";
+
+export const metadata: Metadata = pageMetadata({
+  title: "Methods & Model Card",
+  description: DESC,
+  path: "/methods",
+  og: "methods",
+  type: "article",
+  keywords: ["tsunami model", "shallow water equations numerical scheme", "TUNAMI", "model card", "tsunami model validation"],
+});
 
 const TOC = [
   ["card", "Model card"],
@@ -47,14 +57,26 @@ const TESTS = [
 export default function Page() {
   return (
     <>
+      <JsonLd
+        data={articleLd({
+          type: "TechArticle",
+          headline: "Methods and model card: a browser-based linear shallow-water tsunami model of the Indian Ocean",
+          description: DESC,
+          path: "/methods",
+          og: "methods",
+          about: ["Shallow water equations", "Finite difference method", "Tsunami modelling", "Model validation"],
+        })}
+      />
       <PageHeader
+        crumbs={[{ name: "Methods", path: "/methods" }]}
+        icon={FlaskConical}
         eyebrow="Methods"
         title="Methods and model card"
         lead="A complete description of what the model computes, how, how it was checked, and what it must not be used for. Written so that results can be reviewed and reproduced."
       >
         <nav className="mt-6 flex flex-wrap gap-1.5" aria-label="On this page">
           {TOC.map(([id, l]) => (
-            <a key={id} href={`#${id}`} className="btn !py-1 !text-xs">
+            <a key={id} href={`#${id}`} className="btn !min-h-0 !py-1 !text-xs">
               {l}
             </a>
           ))}
