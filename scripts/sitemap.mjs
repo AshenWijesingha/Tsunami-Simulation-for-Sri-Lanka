@@ -1,6 +1,8 @@
 // Generates public/robots.txt and, when SITE_URL is set, public/sitemap.xml.
 // Runs before `next build` (npm "prebuild"). Both files are build outputs and are git-ignored.
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+
+mkdirSync("public", { recursive: true });
 
 const site = (process.env.SITE_URL ?? "").replace(/\/+$/, "");
 if (!site) {
