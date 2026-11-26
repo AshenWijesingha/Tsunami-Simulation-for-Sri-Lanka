@@ -177,7 +177,7 @@ export default function Simulator() {
       q.set("lon", String(s.params.lon));
     }
     if (s.params.res === 5) q.set("res", "5");
-    const url = `${location.origin}/simulator?${q}`;
+    const url = `${location.origin}${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/simulator/?${q}`;
     lastQuery.current = q.toString();
     router.replace(`/simulator?${q}`, { scroll: false });
     navigator.clipboard?.writeText(url).then(

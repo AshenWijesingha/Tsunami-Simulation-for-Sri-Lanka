@@ -30,6 +30,20 @@ npm run build      # production build
 
 Requires Node.js 20+. Live ETOPO1 bathymetry, basemaps and DEM elevations are fetched from open public tile services at runtime; without network access the model falls back to an idealised bathymetry built from a real coastline mask.
 
+## Deployment
+
+`.github/workflows/deploy.yml` runs lint and the physics tests on every push and pull request. On pushes to `main` it also builds a static export and publishes it to GitHub Pages.
+
+One-time setup: in the repository's **Settings → Pages**, set **Source** to **GitHub Actions**. The site is then served at `https://<owner>.github.io/<repo>/`. The workflow reads the base path from the Pages settings, so a custom domain works without changes.
+
+To build the static site locally:
+
+```bash
+STATIC_EXPORT=1 BASE_PATH=/Tsunami-Simulation-for-Sri-Lanka npm run build   # writes out/
+```
+
+The static export turns off Cache Components (partial prerendering needs a Node server). Every page is static and the model runs in the browser, so nothing is lost. `npm run build` without `STATIC_EXPORT` still produces a normal Next.js server build.
+
 ## Code layout
 
 ```
