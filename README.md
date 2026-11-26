@@ -11,7 +11,7 @@ A Next.js web application that grew out of a single-file lecture tool about the 
 | Route | Content |
 | --- | --- |
 | `/` | Overview of the case study and headline results |
-| `/simulator` | Linear shallow-water model (spherical C-grid, forward–backward, CFL 0.85) running in a Web Worker; three scenarios (actual M6.5, hypothetical with presets, 2004 validation); a **wave height** view (live readout under the pointer, an animated ocean cross-section from the epicentre to Sri Lanka, and estimated coastal heights per station against the 0.3 / 1 / 3 m warning thresholds); η, ηmax, travel-time and bathymetry layers; 21 Sri Lankan and 8 regional synthetic gauges; coastal elevation overlays; run history for convergence studies; shareable permalinks; CSV/JSON/ESRI ASCII export |
+| `/simulator` | Linear shallow-water model (spherical C-grid, forward–backward, CFL 0.85) running in a Web Worker; three scenarios (actual M6.5, hypothetical, 2004 validation); a **source catalogue** of 21 earthquake source zones that can send a tsunami towards Sri Lanka (Makran, Arakan, Andaman–Nicobar, Sumatra, Wharton Basin, Chagos, the mid-ocean ridges, Owen Fracture Zone), ranked by expected run-up at Sri Lanka and loadable with one click; **custom sources** placed by clicking the map or dragging the epicentre; a **wave height** view (live readout under the pointer, an animated ocean cross-section from the epicentre to Sri Lanka, and estimated coastal heights per station against the 0.3 / 1 / 3 m warning thresholds); η, ηmax, travel-time and bathymetry layers; 21 Sri Lankan and 8 regional synthetic gauges; coastal elevation overlays; run history for convergence studies; shareable permalinks; CSV/JSON/ESRI ASCII export |
 | `/learn` | 12-chapter course with KaTeX equations, server-rendered figures and live model values; each chapter can set up the simulator |
 | `/analysis` | Amplitude decay, travel time, dispersion, magnitude–mechanism sensitivity, and a seeded, configurable Monte Carlo; every figure exports as SVG/PNG/CSV |
 | `/impact` | The 2004 record in Sri Lanka (with sources and ranges), vulnerability research, warning and policy since 2004, source zones, a fragility-based impact explorer, and open research questions |
@@ -20,6 +20,19 @@ A Next.js web application that grew out of a single-file lecture tool about the 
 | `/references` | Bibliography with DOIs, data and software licences, BibTeX |
 
 Every page is also available in **Sinhala** (`/si/…`) and **Tamil** (`/ta/…`); English stays at the root.
+
+## Source zones
+
+`src/lib/physics/sources.ts` lists every earthquake source zone in the model domain (50–105° E, 30° S–28° N) that can send a tsunami towards Sri Lanka. Each entry records:
+
+- a representative point: the epicentre of the zone's best-known instrumental event, or a point on the plate boundary;
+- the tectonic setting, faulting mechanism and strike;
+- a typical and a maximum credible magnitude;
+- notable past events and references.
+
+The Sources tab ranks all zones by empirical run-up at Sri Lanka (Abe 1981/1989 with the island's shadow) at the typical magnitude, the maximum credible magnitude, or one magnitude for all. Loading a zone runs the full numerical model. `tests/sources.test.ts` checks that every point lies at sea and inside the domain.
+
+Not included: the Sunda (Java) trench east of 105° E, which Sumatra shields from Sri Lanka, and landslide or volcanic sources.
 
 ## Languages
 
@@ -34,6 +47,7 @@ Every page is also available in **Sinhala** (`/si/…`) and **Tamil** (`/ta/…`
 Every map of Sri Lanka in the app, the logo, favicons and social images is drawn from **Natural Earth** coastlines (public domain), not traced by hand:
 
 - `node scripts/geodata.mjs` reads Natural Earth 1:10m (Sri Lanka, all islands including Mannar) and 1:50m (surrounding land) from the `world-atlas` package. It simplifies them with Douglas–Peucker and writes `src/lib/geo/coastlines.ts`, `src/lib/geo/mark.ts`, `brand/mark.svg` and `brand/sri-lanka.json`.
+- The offline fallback land mask is Natural Earth 1:10m land rasterised on the 10′ model grid by `node scripts/landmask.mjs`.
 - Projections keep the island's true shape: an equirectangular projection scaled by cos(latitude) for the logo and social images, and Web Mercator for the hero map.
 - `tests/geography.test.ts` checks the bounding box against known extremes (Point Pedro 9.83° N, Dondra Head 5.92° N, Sangamankanda 81.88° E), that every coastal station sits within 3 km of the coastline, and that the logo's aspect ratio matches the real island.
 
@@ -88,8 +102,8 @@ src/lib/geo/       Generated Natural Earth coastlines and logo path
 src/i18n/          Locale config, dictionaries (en, si, ta), provider and locale-aware Link
 src/views/         Page bodies shared by every language
 src/app/           Next.js App Router: (en)/ at the root, [locale]/ for /si and /ta
-scripts/           geodata.mjs, brand.mjs, sitemap.mjs
-tests/             Physics, geography and translation tests
+scripts/           geodata.mjs, landmask.mjs, brand.mjs, sitemap.mjs
+tests/             Physics, geography, source-catalogue and translation tests
 ```
 
 ## Citation

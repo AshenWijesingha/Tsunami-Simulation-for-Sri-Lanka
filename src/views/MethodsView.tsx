@@ -41,7 +41,7 @@ const TESTS = [
   ["Island shelter logic", "east coast sheltered for western sources, not the south-west"],
   ["Dispersion limits", "c/c₀ and c_g/c₀ → 1 as kh → 0; c_g < c for finite kh"],
   ["Monte Carlo", "bit-identical results for a fixed seed"],
-  ["Solver set-up (10′)", "301 × 331 grid, 5 s < Δt < 60 s, sub-grid source widened"],
+  ["Solver set-up (10′)", "331 × 349 grid, 5 s < Δt < 60 s, sub-grid source widened"],
   ["Actual event, full run", "Green's-law η < 5 cm; first arrival 200–330 min"],
   ["2004 validation, full run", "Batticaloa arrival 80–160 min (observed ≈ 120 min)"],
 ];
@@ -90,8 +90,10 @@ export function MethodsView({ locale }: { locale: Locale }) {
             <table className="tbl not-prose">
               <tbody className="[&_td]:!whitespace-normal [&_td]:!text-left [&_td:first-child]:w-48 [&_td:first-child]:font-semibold">
                 <tr><td>Model type</td><td>Linear shallow-water (long-wave) equations on the sphere, plus empirical magnitude–distance relations</td></tr>
-                <tr><td>Domain</td><td>{DOM.lon0}–{DOM.lon1}° E, {Math.abs(DOM.lat0)}° S – {DOM.lat1}° N (northern and central Indian Ocean)</td></tr>
-                <tr><td>Resolution</td><td>10′ (≈ 18.5 km, 301 × 331) or 5′ (≈ 9.3 km, 601 × 661)</td></tr>
+                <tr><td>Domain</td><td>{DOM.lon0}–{DOM.lon1}° E, {Math.abs(DOM.lat0)}° S – {DOM.lat1}° N (northern and central Indian Ocean, from the Makran coast to central Sumatra)</td></tr>
+                <tr><td>Source catalogue</td><td>21 source zones (subduction, intraplate, mid-ocean ridge, transform) at representative points, each an idealised single-plane source; any custom epicentre inside the domain, at least 3° from its edges</td></tr>
+                <tr><td>Land mask (offline fallback)</td><td>Natural Earth 1:10m land rasterised at 10′ (scripts/landmask.mjs)</td></tr>
+                <tr><td>Resolution</td><td>10′ (≈ 18.5 km, 331 × 349) or 5′ (≈ 9.3 km, 661 × 697)</td></tr>
                 <tr><td>Outputs</td><td>η(x, t), η<sub>max</sub>, first-arrival time, synthetic gauges at {TOWNS.length} Sri Lankan and {GAUGES.length - TOWNS.length} regional points, coastal estimates and threat levels</td></tr>
                 <tr><td>Intended use</td><td>Teaching; research screening of far-field travel times and order-of-magnitude amplitudes; exploring sensitivity and uncertainty; reproducible demonstrations</td></tr>
                 <tr><td>Out of scope</td><td>Operational warning; inundation or evacuation mapping; near-field sources; landslide or volcanic tsunamis; harbour currents</td></tr>

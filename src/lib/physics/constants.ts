@@ -3,8 +3,8 @@
 /** Epicentre of the 24 Nov 2026 M6.5 event (Department of Meteorology, Bulletin No. 02). */
 export const EPI = { lat: -17.78, lon: 65.82 } as const;
 
-/** Model domain: 50–100° E, 30° S – 25° N. */
-export const DOM = { lon0: 50, lon1: 100, lat0: -30, lat1: 25 } as const;
+/** Model domain: 50–105° E, 30° S – 28° N. */
+export const DOM = { lon0: 50, lon1: 105, lat0: -30, lat1: 28 } as const;
 
 export const g = 9.81; // m s^-2
 export const R_E = 6371e3; // m

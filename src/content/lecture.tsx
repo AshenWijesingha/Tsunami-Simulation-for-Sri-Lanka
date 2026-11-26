@@ -181,7 +181,7 @@ export const CHAPTER_BODY: Record<string, () => ReactNode> = {
         <li>Explicit forward–backward time stepping: continuity first, then momentum with the updated η (TUNAMI-N1 type; Goto et al., 1997).</li>
         <li>Fully reflective coastlines (zero normal flux into dry cells); a 14-cell quadratic sponge damps waves at the open boundaries.</li>
         <li>Bathymetry: ETOPO1 (Terrarium tiles) block-averaged with 3 × 3 sub-sampling to the model grid.</li>
-        <li>Domain 50–100° E, 30° S – 25° N; 10′ (≈ 18.5 km) or 5′ (≈ 9.3 km).</li>
+        <li>Domain 50–105° E, 30° S – 28° N; 10′ (≈ 18.5 km) or 5′ (≈ 9.3 km).</li>
       </ul>
       <p>
         The model runs in a Web Worker in your browser. On a 10′ grid there are about 10⁵ cells and a few hundred time steps; the 5′ grid needs four times

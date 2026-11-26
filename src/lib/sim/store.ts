@@ -5,6 +5,7 @@ import type { Progress, RunData } from "@/lib/physics/simulate";
 import { DEFAULT_PARAMS, SCENARIOS, type Params, type ScenarioId } from "@/lib/physics/source";
 import { runSimulation } from "./client";
 import { summarize, type RunSummary } from "./derive";
+import { clampToDomain, zoneById } from "@/lib/physics/sources";
 
 export type Layer = "eta" | "max" | "tt" | "bathy" | "off";
 export type Overlay = "off" | "zones" | "inund";
@@ -32,6 +33,12 @@ interface SimStore {
   history: RunSummary[];
   /** Map pointer position for the point readout (null when the pointer is off the map). */
   hover: { lat: number; lon: number } | null;
+  /** Waiting for a map click to place a custom epicentre. */
+  picking: boolean;
+  /** Show the source-zone catalogue on the map. */
+  showZones: boolean;
+  /** Set when the last placed epicentre had to be moved inside the model domain. */
+  clamped: boolean;
   setParams(p: Partial<Params>): void;
   setScenario(s: ScenarioId, opts?: { keep?: boolean; run?: boolean }): void;
   runModel(): Promise<void>;
@@ -40,6 +47,10 @@ interface SimStore {
   set<K extends keyof SimStore>(k: K, v: SimStore[K]): void;
   toggleGauge(name: string, on?: boolean): void;
   clearHistory(): void;
+  /** Load a catalogue source zone (optionally at another magnitude) and run the model. */
+  loadZone(id: string, M?: number): void;
+  /** Put a custom (hypothetical) epicentre at a point, keeping magnitude and mechanism, and run the model. */
+  placeSource(lat: number, lon: number, run?: boolean): void;
 }
 
 function seekStep(run: RunData, n: number) {
@@ -80,6 +91,9 @@ export const useSim = create<SimStore>((set, get) => ({
   frame: 0,
   history: [],
   hover: null,
+  picking: false,
+  showZones: true,
+  clamped: false,
 
   set: (k, v) => set({ [k]: v } as Partial<SimStore>),
 
@@ -159,6 +173,25 @@ export const useSim = create<SimStore>((set, get) => ({
   },
 
   clearHistory: () => set({ history: [] }),
+
+  loadZone(id, M) {
+    const z = zoneById(id);
+    if (!z) return;
+    set({ picking: false, clamped: false });
+    if (z.scenario && (M == null || M === z.M)) return get().setScenario(z.scenario);
+    get().setScenario("whatif", { run: false });
+    get().setParams({ lat: z.lat, lon: z.lon, M: M ?? z.M, mech: z.mech, strike: z.strike });
+    void get().runModel();
+  },
+
+  placeSource(lat, lon, run = true) {
+    const c = clampToDomain(lat, lon);
+    const s = get();
+    if (s.params.scen !== "whatif") s.setScenario("whatif", { keep: true, run: false });
+    get().setParams({ lat: c.lat, lon: c.lon });
+    set({ picking: false, clamped: c.clamped });
+    if (run) void get().runModel();
+  },
 }));
 
 /** Max |η| currently in the domain (sampled). */
