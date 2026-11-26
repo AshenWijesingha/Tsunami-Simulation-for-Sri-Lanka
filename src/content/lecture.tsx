@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/i18n/Link";
 import type { ReactNode } from "react";
 import { Chart } from "@/components/charts/Chart";
 import { decaySpec, dispersionNumbers, dispersionSpec, sensitivitySpec, travelSpec } from "@/components/analysis/specs";

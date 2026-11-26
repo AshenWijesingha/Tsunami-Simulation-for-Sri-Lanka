@@ -35,20 +35,22 @@ export const SITE = {
   ],
 };
 
+export type NavKey = "overview" | "simulator" | "course" | "analysis" | "impact" | "methods" | "exercises" | "references";
+
 export interface NavItem {
   href: string;
-  label: string;
+  key: NavKey;
   icon: LucideIcon;
-  desc: string;
 }
 
+/** Labels and descriptions come from the dictionary (dict.nav.items[key]). */
 export const NAV: NavItem[] = [
-  { href: "/", label: "Overview", icon: House, desc: "The case study and what the platform offers" },
-  { href: "/simulator", label: "Simulator", icon: WavesHorizontal, desc: "Run the shallow-water model in your browser" },
-  { href: "/learn", label: "Course", icon: GraduationCap, desc: "12 chapters from bulletin to physics" },
-  { href: "/analysis", label: "Analysis", icon: ChartSpline, desc: "Sensitivity, dispersion and Monte Carlo" },
-  { href: "/impact", label: "Impact", icon: BookOpen, desc: "2004 record, vulnerability and fragility" },
-  { href: "/methods", label: "Methods", icon: FlaskConical, desc: "Model card, verification and limits" },
-  { href: "/exercises", label: "Exercises", icon: FileText, desc: "Quiz, predict & verify, forecaster challenge" },
-  { href: "/references", label: "References", icon: LibraryBig, desc: "Sources, data and citation" },
+  { href: "/", key: "overview", icon: House },
+  { href: "/simulator", key: "simulator", icon: WavesHorizontal },
+  { href: "/learn", key: "course", icon: GraduationCap },
+  { href: "/analysis", key: "analysis", icon: ChartSpline },
+  { href: "/impact", key: "impact", icon: BookOpen },
+  { href: "/methods", key: "methods", icon: FlaskConical },
+  { href: "/exercises", key: "exercises", icon: FileText },
+  { href: "/references", key: "references", icon: LibraryBig },
 ];

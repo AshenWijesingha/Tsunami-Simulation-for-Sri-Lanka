@@ -1,20 +1,23 @@
-import Link from "next/link";
+import Link from "@/i18n/Link";
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Languages } from "lucide-react";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { breadcrumbLd } from "@/lib/seo";
+import type { Locale } from "@/i18n/config";
+import { getDict } from "@/i18n/server";
 
 export interface Crumb {
   name: string;
   path: string;
 }
 
-export function Breadcrumbs({ items }: { items: Crumb[] }) {
-  const all = [{ name: "Home", path: "/" }, ...items];
+export function Breadcrumbs({ items, locale }: { items: Crumb[]; locale: Locale }) {
+  const d = getDict(locale);
+  const all = [{ name: d.nav.home, path: "/" }, ...items];
   return (
     <>
-      <nav aria-label="Breadcrumb">
+      <nav aria-label={d.nav.breadcrumb}>
         <ol className="flex flex-wrap items-center gap-1 text-[0.8rem] text-muted">
           {all.map((c, i) => (
             <li key={c.path} className="flex items-center gap-1">
@@ -32,7 +35,7 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
           ))}
         </ol>
       </nav>
-      <JsonLd data={breadcrumbLd(all)} />
+      <JsonLd data={breadcrumbLd(locale, all)} />
     </>
   );
 }
@@ -43,8 +46,10 @@ export function PageHeader({
   title,
   lead,
   crumbs,
+  locale,
   children,
 }: {
+  locale: Locale;
   eyebrow?: string;
   icon?: LucideIcon;
   title: ReactNode;
@@ -56,7 +61,7 @@ export function PageHeader({
     <div className="hero-bg relative overflow-hidden border-b border-line">
       <div aria-hidden className="grid-bg pointer-events-none absolute inset-0 opacity-50" />
       <div className="relative mx-auto max-w-[1240px] px-4 pb-10 pt-6 md:pb-14">
-        {crumbs && <Breadcrumbs items={crumbs} />}
+        {crumbs && <Breadcrumbs items={crumbs} locale={locale} />}
         <div className="mt-8 md:mt-10">
           {eyebrow && (
             <div className="mb-3 inline-flex items-center gap-2 text-[0.78rem] font-bold uppercase tracking-[0.14em] text-accent">
@@ -73,8 +78,12 @@ export function PageHeader({
   );
 }
 
-export function Container({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`mx-auto max-w-[1240px] px-4 ${className}`}>{children}</div>;
+export function Container({ children, className = "", lang }: { children: ReactNode; className?: string; lang?: string }) {
+  return (
+    <div className={`mx-auto max-w-[1240px] px-4 ${className}`} lang={lang}>
+      {children}
+    </div>
+  );
 }
 
 export function Stat({ value, label, sub, icon: Icon }: { value: ReactNode; label: ReactNode; sub?: ReactNode; icon?: LucideIcon }) {
@@ -100,4 +109,18 @@ export function SectionHeading({ eyebrow, title, lead, id }: { eyebrow?: string;
 
 export function Cite({ children }: { children: ReactNode }) {
   return <span className="text-muted">({children})</span>;
+}
+
+/** Shown on Sinhala and Tamil pages whose long-form scientific text is English only. */
+export function EnglishOnlyNotice({ locale, className = "" }: { locale: Locale; className?: string }) {
+  if (locale === "en") return null;
+  const d = getDict(locale);
+  return (
+    <div className={`callout callout-info flex gap-3 ${className}`} role="note">
+      <Languages size={20} className="mt-0.5 flex-none text-accent" aria-hidden />
+      <div>
+        <b>{d.common.englishOnlyTitle}.</b> {d.common.englishOnlyText}
+      </div>
+    </div>
+  );
 }

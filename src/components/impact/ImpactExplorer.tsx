@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import Link from "@/i18n/Link";
 import { useMemo, useState } from "react";
 import { Chart, C } from "@/components/charts/Chart";
 import { ChartFrame } from "@/components/charts/ChartFrame";

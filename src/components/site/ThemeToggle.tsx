@@ -1,11 +1,12 @@
 "use client";
 import { useSyncExternalStore } from "react";
 import { Monitor, Moon, Sun } from "lucide-react";
+import { fmt } from "@/i18n/config";
+import { useT } from "@/i18n/client";
 
 type Mode = "system" | "light" | "dark";
 const ORDER: Mode[] = ["system", "light", "dark"];
 const ICON = { system: Monitor, light: Sun, dark: Moon };
-const LABEL = { system: "System theme", light: "Light theme", dark: "Dark theme" };
 
 function subscribe(cb: () => void) {
   window.addEventListener("themechange", cb);
@@ -26,6 +27,7 @@ function readMode(): Mode {
 
 export function ThemeToggle() {
   const mode = useSyncExternalStore(subscribe, readMode, () => "system" as Mode);
+  const LABEL = useT().nav.theme;
   const next = ORDER[(ORDER.indexOf(mode) + 1) % ORDER.length];
   const Icon = ICON[mode];
   const cycle = () => {
@@ -37,7 +39,7 @@ export function ThemeToggle() {
     window.dispatchEvent(new Event("themechange"));
   };
   return (
-    <button className="btn btn-ghost !min-h-9 !w-9 !p-0" onClick={cycle} title={`${LABEL[mode]} (switch to ${LABEL[next].toLowerCase()})`} aria-label={`${LABEL[mode]}. Switch to ${LABEL[next].toLowerCase()}`}>
+    <button className="btn btn-ghost !min-h-9 !w-9 !p-0" onClick={cycle} title={`${LABEL[mode]} · ${fmt(LABEL.switchTo, { mode: LABEL[next] })}`} aria-label={`${LABEL[mode]}. ${fmt(LABEL.switchTo, { mode: LABEL[next] })}`}>
       <Icon size={18} />
     </button>
   );

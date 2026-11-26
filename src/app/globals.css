@@ -137,8 +137,8 @@
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: "Source Serif 4 Variable", "Iowan Old Style", Georgia, serif;
+  --font-sans: "Inter Variable", "Noto Sans Sinhala Variable", "Noto Sans Tamil Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Source Serif 4 Variable", "Noto Serif Sinhala Variable", "Noto Serif Tamil Variable", "Iowan Old Style", Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
 
@@ -494,6 +494,23 @@
   transform-origin: center;
   animation: ripple 6s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
 }
+/* hero map: wavefronts light up hour by hour */
+@keyframes isochrone {
+  0%,
+  100% {
+    stroke-opacity: 0.12;
+  }
+  12% {
+    stroke-opacity: 0.95;
+  }
+  40% {
+    stroke-opacity: 0.22;
+  }
+}
+.isochrone {
+  stroke-opacity: 0.12;
+  animation: isochrone 4.5s ease-out infinite;
+}
 @keyframes ring {
   0% {
     transform: scale(0.6);
@@ -507,6 +524,10 @@
 @media (prefers-reduced-motion: reduce) {
   .ripple {
     display: none;
+  }
+  .isochrone {
+    animation: none !important;
+    stroke-opacity: 0.35;
   }
   .epi::after {
     animation: none !important;
@@ -586,4 +607,32 @@
 input[type="range"] {
   accent-color: var(--accent);
   width: 100%;
+}
+
+/* ---------- Sinhala & Tamil typography ----------
+   Indic scripts have tall stacked vowel signs: open up line-height, drop Latin tracking,
+   and step Tamil display sizes down (its words are long). */
+:lang(si),
+:lang(ta) {
+  letter-spacing: 0;
+}
+:lang(si) :is(h1, h2, h3, .font-display),
+:lang(ta) :is(h1, h2, h3, .font-display) {
+  line-height: 1.32 !important;
+  letter-spacing: 0 !important;
+}
+:lang(si) :is(p, li, .note),
+:lang(ta) :is(p, li, .note) {
+  line-height: 1.75;
+}
+:lang(ta) h1 {
+  font-size: clamp(1.9rem, 4.2vw, 2.9rem) !important;
+}
+:lang(si) h1 {
+  font-size: clamp(2rem, 4.5vw, 3.1rem) !important;
+}
+:lang(si) .eyebrow,
+:lang(ta) .eyebrow {
+  text-transform: none;
+  letter-spacing: 0;
 }

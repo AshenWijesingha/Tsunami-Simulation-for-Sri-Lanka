@@ -1,6 +1,6 @@
 "use client";
 import { Play } from "lucide-react";
-import Link from "next/link";
+import Link from "@/i18n/Link";
 import { useMemo, useState } from "react";
 import { Chart } from "@/components/charts/Chart";
 import { ChartFrame } from "@/components/charts/ChartFrame";

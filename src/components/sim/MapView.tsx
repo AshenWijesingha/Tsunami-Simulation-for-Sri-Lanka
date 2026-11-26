@@ -7,12 +7,18 @@ import { DOM, DONDRA, SL_BOUNDS } from "@/lib/physics/constants";
 import { deg, fmtLat, fmtLon, greatCircle, rad } from "@/lib/physics/geo";
 import { TERRARIUM, decodeTerrarium } from "@/lib/physics/bathymetry";
 import { analyticTown, GAUGES } from "@/lib/physics/stations";
-import { MECH } from "@/lib/physics/source";
 import type { RunData } from "@/lib/physics/simulate";
 import { fmtDur, fmtLen } from "@/lib/format";
 import { live, useSim } from "@/lib/sim/store";
 import { slRows } from "@/lib/sim/derive";
 import { renderField } from "@/lib/sim/render";
+import { useT } from "@/i18n/client";
+import { fmt } from "@/i18n/config";
+import type { Dict } from "@/i18n/dict/en";
+import { en } from "@/i18n/dict/en";
+
+/** Current dictionary for imperative (non-React) map code such as popups. */
+let DICT: Dict = en;
 
 type BasemapKey = "liberty" | "positron" | "dark" | "satellite" | "osm";
 
@@ -176,17 +182,37 @@ async function ensureProtocol(ml: typeof import("maplibre-gl")) {
   });
 }
 
+const esc = (x: string) => x.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+const placeName = (n: string) => DICT.places[n] ?? n;
+
 function popupHtml(name: string, run: RunData | null, elev: Record<string, number>) {
+  const P = DICT.sim.map.popup;
   const st = GAUGES.find((g) => g.name === name)!;
-  if (!run) return `<b>${name}</b><br>Run the model to see results.`;
+  const title = `<b>${esc(placeName(name))}</b>`;
+  if (!run) return `${title}<br>${esc(P.runFirst)}`;
   const q = run.gauges.find((g) => g.name === name)!;
   const a = analyticTown(st, run.src);
-  let s = `<b>${name}</b>${st.district ? ` <span style="opacity:.7">· ${st.district} District</span>` : ""}<br>Great-circle distance: ${Math.round(q.dist).toLocaleString()} km<br>`;
+  const b = (v: string) => `<b>${v}</b>`;
+  let s = `${title}${st.district ? ` <span style="opacity:.7">· ${esc(fmt(P.district, { d: placeName(st.district) }))}</span>` : ""}<br>${esc(fmt(P.distance, { d: Math.round(q.dist).toLocaleString("en-US") }))}<br>`;
   if (q.snap)
-    s += `Model gauge cell: depth ${Math.round(q.snap.h)} m, ${q.snap.dkm.toFixed(0)} km offshore<br>Numerical arrival: <b>${fmtDur(q.etaShore)}</b> (offshore ${fmtDur(q.arr)})<br>Max η offshore: <b>${fmtLen(q.max)}</b> · Green's law to 1 m: ${fmtLen(q.green1)}<br>`;
+    s +=
+      esc(fmt(P.cell, { h: Math.round(q.snap.h), d: q.snap.dkm.toFixed(0) })) +
+      "<br>" +
+      esc(fmt(P.arrival, { t: "\u0001", o: fmtDur(q.arr) })).replace("\u0001", b(fmtDur(q.etaShore))) +
+      "<br>" +
+      esc(fmt(P.maxEta, { m: "\u0001", g: fmtLen(q.green1) })).replace("\u0001", b(fmtLen(q.max))) +
+      "<br>";
   if (st.sl) {
     const ev = elev[name];
-    s += `Empirical Abe (1981) H: ${fmtLen(a.H81)} · Abe (1989) Ht: ${fmtLen(a.H89)}${a.shelter ? " (sheltered ×0.5)" : ""}<br>Analytic ETA: ${fmtDur(a.eta)}<br>Ground elevation: ${(ev ?? st.elev ?? 0).toFixed(1)} m ${ev != null ? "(DEM)" : "(approx.)"}`;
+    s +=
+      esc(fmt(P.abe, { a: fmtLen(a.H81), b: fmtLen(a.H89) })) +
+      (a.shelter ? esc(P.sheltered) : "") +
+      "<br>" +
+      esc(fmt(P.analytic, { t: fmtDur(a.eta) })) +
+      "<br>" +
+      esc(fmt(P.elevation, { e: (ev ?? st.elev ?? 0).toFixed(1) })) +
+      " " +
+      esc(ev != null ? P.dem : P.approx);
   }
   return s;
 }
@@ -235,6 +261,9 @@ export default function MapView() {
   const overlay = useSim((s) => s.overlay);
   const params = useSim((s) => s.params);
   const elev = useSim((s) => s.elev);
+  const t = useT();
+  const T = t.sim.map;
+  DICT = t;
 
   // ---- create map once
   useEffect(() => {
@@ -248,7 +277,7 @@ export default function MapView() {
       try {
         ml = await import("maplibre-gl");
       } catch {
-        setFailed("The map library couldn't load. The numerical model, charts and tables still work.");
+        setFailed(DICT.sim.map.libFailed);
         return;
       }
       if (disposed || !el.current) return;
@@ -267,7 +296,7 @@ export default function MapView() {
           canvasContextAttributes: { preserveDrawingBuffer: true },
         });
       } catch {
-        setFailed("The interactive map needs WebGL, which isn't available here. The numerical model, charts and tables still work.");
+        setFailed(DICT.sim.map.webgl);
         return;
       }
       mapRef.current = map;
@@ -282,7 +311,7 @@ export default function MapView() {
       // If the remote vector style is blocked or offline, fall back to inline raster styles so the model field still shows.
       setTimeout(() => {
         if (!styleOK && mapRef.current === map) {
-          setFallbackNote("The selected basemap didn't load (offline or blocked); showing OpenStreetMap raster tiles instead.");
+          setFallbackNote(DICT.sim.map.fallback);
           map.setStyle(BASEMAPS.osm.style(), { diff: false });
         }
       }, 8000);
@@ -290,6 +319,11 @@ export default function MapView() {
       ro.observe(el.current);
       roRef.current = ro;
       map.on("error", () => {});
+      // Point readout: report the pointer (or tap) position to the store.
+      const setHover = (lat: number, lon: number) => useSim.getState().set("hover", { lat, lon });
+      map.on("mousemove", (e) => setHover(e.lngLat.lat, e.lngLat.lng));
+      map.on("click", (e) => setHover(e.lngLat.lat, e.lngLat.lng));
+      map.getCanvas().addEventListener("mouseleave", () => useSim.getState().set("hover", null));
       const mk = (cls: string, html: string, title: string) => {
         const e = document.createElement("div");
         e.className = cls;
@@ -297,14 +331,14 @@ export default function MapView() {
         e.title = title;
         return e;
       };
-      epiRef.current = new ml.Marker({ element: mk("epi", "<i></i>", "Epicentre") })
+      epiRef.current = new ml.Marker({ element: mk("epi", "<i></i>", DICT.sim.map.popup.source) })
         .setLngLat([params.lon, params.lat])
         .setPopup(new ml.Popup({ offset: 14, maxWidth: "320px" }))
         .addTo(map);
       for (const g of GAUGES) {
-        const e = mk("gauge-ic" + (g.sl ? " sl" : ""), "", g.name);
+        const e = mk("gauge-ic" + (g.sl ? " sl" : ""), "", placeName(g.name));
         e.setAttribute("role", "button");
-        e.setAttribute("aria-label", `Station ${g.name}`);
+        e.setAttribute("aria-label", fmt(DICT.sim.map.station, { n: placeName(g.name) }));
         const m = new ml.Marker({ element: e, anchor: "bottom" })
           .setLngLat([g.lon, g.lat])
           .setPopup(new ml.Popup({ offset: 12, maxWidth: "340px" }).setHTML(popupHtml(g.name, useSim.getState().run, useSim.getState().elev)))
@@ -435,7 +469,7 @@ export default function MapView() {
     epiRef.current
       ?.getPopup()
       ?.setHTML(
-        `<b>Source</b><br>${fmtLat(params.lat)}, ${fmtLon(params.lon)}<br>M<sub>w</sub> ${params.M.toFixed(1)} · ${MECH[params.mech].label} · strike ${params.strike}°`,
+        `<b>${esc(T.popup.source)}</b><br>${fmtLat(params.lat)}, ${fmtLon(params.lon)}<br>M<sub>w</sub> ${params.M.toFixed(1)} · ${esc(t.sim.mech[params.mech])} · ${params.strike}°`,
       );
     const src = map.getSource("domain") as { setData(d: unknown): void } | undefined;
     src?.setData({
@@ -445,11 +479,12 @@ export default function MapView() {
         { type: "Feature", properties: { k: "gc" }, geometry: { type: "LineString", coordinates: greatCircle(params.lat, params.lon, DONDRA.lat, DONDRA.lon) } },
       ],
     });
-  }, [params.lat, params.lon, params.M, params.mech, params.strike, ready, styleGen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.lat, params.lon, params.M, params.mech, params.strike, ready, styleGen, t]);
 
   useEffect(() => {
     for (const [name, m] of Object.entries(markers.current)) m.getPopup()?.setHTML(popupHtml(name, run, elev));
-  }, [run, elev, ready]);
+  }, [run, elev, ready, t]);
 
   // ---- coastal overlays
   useEffect(() => {
@@ -515,28 +550,28 @@ export default function MapView() {
   return (
     <div className="absolute inset-0">
       <div className="absolute inset-0">
-        <div ref={el} className="h-full w-full bg-[#0a1628]" aria-label="Interactive map of the model domain" />
+        <div ref={el} className="h-full w-full bg-[#0a1628]" aria-label={T.aria} />
       </div>
       {failed && <div className="absolute inset-0 grid place-items-center p-6 text-center text-warn">{failed}</div>}
       {fallbackNote && (
         <div className="glass absolute left-1/2 top-16 z-[6] w-[min(28rem,calc(100%-24px))] -translate-x-1/2 max-lg:top-[112px] px-3 py-2 text-xs text-fg-2" role="status">
           {fallbackNote}{" "}
           <button className="underline" onClick={() => setFallbackNote(null)}>
-            Dismiss
+            {T.dismiss}
           </button>
         </div>
       )}
       <div className="absolute right-[54px] top-2.5 z-[6] flex flex-col gap-1.5 max-lg:top-[60px] max-lg:left-2.5 max-lg:right-auto max-lg:items-start">
         <div className="glass flex gap-1 p-1">
-          <MapBtn on={menu} onClick={() => setMenu((v) => !v)} title="Basemap (B)"><MapIcon size={16} /></MapBtn>
-          <MapBtn on={terrain} onClick={() => setTerrain((v) => !v)} title="3D terrain (T)"><Mountain size={16} /></MapBtn>
-          <MapBtn on={globe} onClick={() => setGlobe((v) => !v)} title="Globe view (G)"><Globe size={16} /></MapBtn>
-          <MapBtn onClick={() => mapApi.fitDomain()} title="Whole model domain"><Maximize2 size={16} /></MapBtn>
-          <MapBtn onClick={() => mapApi.fitSL()} title="Zoom to Sri Lanka"><LocateFixed size={16} /></MapBtn>
+          <MapBtn on={menu} onClick={() => setMenu((v) => !v)} title={T.basemap}><MapIcon size={16} /></MapBtn>
+          <MapBtn on={terrain} onClick={() => setTerrain((v) => !v)} title={T.terrain}><Mountain size={16} /></MapBtn>
+          <MapBtn on={globe} onClick={() => setGlobe((v) => !v)} title={T.globe}><Globe size={16} /></MapBtn>
+          <MapBtn onClick={() => mapApi.fitDomain()} title={T.domain}><Maximize2 size={16} /></MapBtn>
+          <MapBtn onClick={() => mapApi.fitSL()} title={T.sl}><LocateFixed size={16} /></MapBtn>
         </div>
         {menu && (
           <div className="glass w-60 p-2 self-end max-lg:self-start">
-            <div className="eyebrow px-1 pb-1">Open basemaps</div>
+            <div className="eyebrow px-1 pb-1">{T.basemaps}</div>
             {(Object.keys(BASEMAPS) as BasemapKey[]).map((k) => (
               <button
                 key={k}
@@ -553,7 +588,7 @@ export default function MapView() {
                 </span>
               </button>
             ))}
-            <p className="note px-1 pt-1.5">All free and open, no API keys. 3D terrain uses AWS Terrain Tiles.</p>
+            <p className="note px-1 pt-1.5">{T.basemapsNote}</p>
           </div>
         )}
       </div>
