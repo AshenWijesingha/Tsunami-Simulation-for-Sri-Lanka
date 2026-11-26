@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
+import { LibraryBig } from "lucide-react";
+import { pageMetadata } from "@/lib/seo";
 import { REFS, TOPICS, type Ref } from "@/content/references";
 import { Container, PageHeader } from "@/components/ui/PageHeader";
 import { SITE } from "@/lib/site";
 import { CopyBlock } from "@/components/ui/CopyBlock";
 
-export const metadata: Metadata = {
-  title: "References & data",
-  description: "Bibliography with DOIs, data sources, software licences and citation guidance for the Indian Ocean Tsunami Lab.",
-};
+export const metadata: Metadata = pageMetadata({
+  title: "References, Data & Citation",
+  description:
+    "Bibliography with DOIs, data sources, software licences and BibTeX citation for the Indian Ocean Tsunami Lab, covering 2004 tsunami research and modelling.",
+  path: "/references",
+  og: "references",
+});
 
 const BIBTEX = `@software{indian_ocean_tsunami_lab,
   title   = {Indian Ocean Tsunami Lab: far-field tsunami hazard for Sri Lanka},
@@ -22,7 +27,13 @@ export default function Page() {
   const groups = Object.keys(TOPICS) as Ref["topic"][];
   return (
     <>
-      <PageHeader eyebrow="References" title="References, data and citation" lead="Everything the platform relies on, with DOIs where they exist. Software and data licences are listed so results can be reused correctly." />
+      <PageHeader
+        crumbs={[{ name: "References", path: "/references" }]}
+        icon={LibraryBig}
+        eyebrow="References"
+        title="References, data and citation"
+        lead="Everything the platform relies on, with DOIs where they exist. Software and data licences are listed so results can be reused correctly."
+      />
       <Container className="grid gap-10 py-10 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0">
           {groups.map((g) => {

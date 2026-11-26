@@ -1,4 +1,5 @@
 "use client";
+import { Globe, LocateFixed, Map as MapIcon, Maximize2, Mountain } from "lucide-react";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import type { Map as MLMap, Marker, StyleSpecification } from "maplibre-gl";
@@ -527,11 +528,11 @@ export default function MapView() {
       )}
       <div className="absolute right-[54px] top-2.5 z-[6] flex flex-col gap-1.5 max-lg:top-[60px] max-lg:left-2.5 max-lg:right-auto max-lg:items-start">
         <div className="glass flex gap-1 p-1">
-          <MapBtn on={menu} onClick={() => setMenu((v) => !v)} title="Basemap (B)">🗺</MapBtn>
-          <MapBtn on={terrain} onClick={() => setTerrain((v) => !v)} title="3D terrain (T)">⛰</MapBtn>
-          <MapBtn on={globe} onClick={() => setGlobe((v) => !v)} title="Globe view (G)">🌐</MapBtn>
-          <MapBtn onClick={() => mapApi.fitDomain()} title="Whole model domain">⤢</MapBtn>
-          <MapBtn onClick={() => mapApi.fitSL()} title="Zoom to Sri Lanka">LK</MapBtn>
+          <MapBtn on={menu} onClick={() => setMenu((v) => !v)} title="Basemap (B)"><MapIcon size={16} /></MapBtn>
+          <MapBtn on={terrain} onClick={() => setTerrain((v) => !v)} title="3D terrain (T)"><Mountain size={16} /></MapBtn>
+          <MapBtn on={globe} onClick={() => setGlobe((v) => !v)} title="Globe view (G)"><Globe size={16} /></MapBtn>
+          <MapBtn onClick={() => mapApi.fitDomain()} title="Whole model domain"><Maximize2 size={16} /></MapBtn>
+          <MapBtn onClick={() => mapApi.fitSL()} title="Zoom to Sri Lanka"><LocateFixed size={16} /></MapBtn>
         </div>
         {menu && (
           <div className="glass w-60 p-2 self-end max-lg:self-start">

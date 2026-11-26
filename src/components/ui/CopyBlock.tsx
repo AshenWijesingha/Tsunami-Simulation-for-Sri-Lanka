@@ -8,7 +8,7 @@ export function CopyBlock({ text, label }: { text: string; label?: string }) {
       <div className="flex items-center justify-between border-b border-line bg-panel-2 px-3 py-1.5">
         <span className="eyebrow !text-[0.66rem]">{label}</span>
         <button
-          className="btn !px-2 !py-0.5 !text-xs"
+          className="btn !min-h-0 !px-2 !py-0.5 !text-xs"
           onClick={() =>
             navigator.clipboard?.writeText(text).then(() => {
               setOk(true);

@@ -1,4 +1,5 @@
 "use client";
+import { ArrowRight, Play } from "lucide-react";
 import Link from "next/link";
 import { SCENARIOS, type ScenarioId } from "@/lib/physics/source";
 import { fmtDur, fmtLen } from "@/lib/format";
@@ -33,7 +34,7 @@ export function LiveRun({ scen, show }: { scen: ScenarioId; show: "arrivals" | "
         ) : (
           <div className="flex flex-wrap items-center gap-3">
             <button className="btn btn-primary" onClick={start}>
-              ▶ Compute numerical values
+              <Play size={15} fill="currentColor" /> Compute numerical values
             </button>
             <span className="note">Runs the shallow-water model in a background thread (a few seconds).</span>
           </div>
@@ -78,7 +79,7 @@ export function LiveRun({ scen, show }: { scen: ScenarioId; show: "arrivals" | "
       <div className="eyebrow mb-2">Numerical model · {SCENARIOS[scen].label}</div>
       <KV rows={kv} />
       <p className="note mt-2">
-        {meta}. <Link href={`/simulator?scen=${scen}&tab=results`}>Open in simulator →</Link>
+        {meta}. <Link href={`/simulator?scen=${scen}&tab=results`} className="inline-flex items-center gap-1">Open in simulator <ArrowRight size={13} /></Link>
       </p>
     </div>
   );

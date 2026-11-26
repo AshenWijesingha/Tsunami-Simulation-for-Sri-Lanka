@@ -1,4 +1,5 @@
 "use client";
+import { Download, Loader2, Play, RefreshCw } from "lucide-react";
 import { useMemo } from "react";
 import { C_KMMIN, C_PATH, DOM, DONDRA, GREEN10 } from "@/lib/physics/constants";
 import { fmtLat, fmtLon, hav } from "@/lib/physics/geo";
@@ -148,7 +149,8 @@ export function ModelPanel() {
           onClick={() => runModel()}
           disabled={running}
         >
-          {running ? "Running…" : dirty ? "⟳ Parameters changed: re-run model" : "▶ Run numerical model"}
+          {running ? <Loader2 size={16} className="animate-spin" /> : dirty ? <RefreshCw size={16} /> : <Play size={16} fill="currentColor" />}
+          {running ? "Running…" : dirty ? "Parameters changed: re-run model" : "Run numerical model"}
         </button>
         {run && (
           <KV
@@ -393,7 +395,7 @@ export function GaugesPanel() {
   const { toggleGauge, set } = useSim.getState();
   return (
     <>
-      <Section title="Synthetic tide gauges" right={<button className="btn !py-0.5 !px-2 !text-xs" onClick={() => set("gaugeSel", [])}>Clear</button>}>
+      <Section title="Synthetic tide gauges" right={<button className="btn !min-h-0 !py-0.5 !px-2 !text-xs" onClick={() => set("gaugeSel", [])}>Clear</button>}>
         <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-[0.8rem]">
           {GAUGES.map((g) => (
             <label key={g.name} className="flex cursor-pointer items-center gap-1">
@@ -484,10 +486,10 @@ export function ExportSection() {
   return (
     <Section title="Export data">
       <div className="flex flex-wrap gap-1.5">
-        <button className="btn" onClick={gaugesCsv}>⬇ Gauge time series (CSV)</button>
-        <button className="btn" onClick={townsCsv}>⬇ Station table (CSV)</button>
-        <button className="btn" onClick={meta}>⬇ Run metadata (JSON)</button>
-        <button className="btn" onClick={etaMaxAsc}>⬇ η<sub>max</sub> grid (ESRI ASCII)</button>
+        <button className="btn" onClick={gaugesCsv}><Download size={15} /> Gauge time series (CSV)</button>
+        <button className="btn" onClick={townsCsv}><Download size={15} /> Station table (CSV)</button>
+        <button className="btn" onClick={meta}><Download size={15} /> Run metadata (JSON)</button>
+        <button className="btn" onClick={etaMaxAsc}><Download size={15} /> η<sub>max</sub> grid (ESRI ASCII)</button>
       </div>
       <p className="note mt-2">The ESRI ASCII grid opens directly in QGIS or ArcGIS (WGS 84, cell centres).</p>
     </Section>
@@ -501,7 +503,7 @@ export function RunsPanel() {
   const stations = ["Galle", "Colombo", "Batticaloa", "Trincomalee"];
   return (
     <>
-      <Section title="Run history" right={history.length ? <button className="btn !py-0.5 !px-2 !text-xs" onClick={clearHistory}>Clear</button> : null}>
+      <Section title="Run history" right={history.length ? <button className="btn !min-h-0 !py-0.5 !px-2 !text-xs" onClick={clearHistory}>Clear</button> : null}>
         {history.length === 0 ? (
           <p className="note">Completed runs appear here so you can compare scenarios, resolutions and bathymetry sources.</p>
         ) : (

@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
     ? { output: "export" as const, trailingSlash: true }
     : { cacheComponents: true, partialPrefetching: true }),
   ...(basePath ? { basePath } : {}),
-  env: { NEXT_PUBLIC_BASE_PATH: basePath },
+  env: { NEXT_PUBLIC_BASE_PATH: basePath, NEXT_PUBLIC_SITE_URL: process.env.SITE_URL ?? "" },
   turbopack: {
     rules: {
       "*.css": {
