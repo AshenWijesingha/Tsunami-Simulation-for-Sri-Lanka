@@ -8,7 +8,7 @@ let rowMap: Int32Array | null = null;
 let rowKey = "";
 
 /** Map output rows (Web-Mercator spaced) to model rows (equirectangular). */
-function ensureRowMap(ny: number, d: number) {
+export function ensureRowMap(ny: number, d: number) {
   const key = ny + "_" + d;
   if (rowKey === key && rowMap) return rowMap;
   const H = Math.round(ny * 1.08),
@@ -72,7 +72,40 @@ function bathyColor(f: number, o: Uint8ClampedArray, idx: number) {
   o[idx + 3] = 200;
 }
 
-export function renderField(canvas: HTMLCanvasElement, run: RunData | null, eta: Float32Array | null, layer: Layer, scaleMul: number) {
+/**
+ * Paint the η layer into an RGBA buffer (W = nx, H = rowMap length). Pure and DOM-free, so the
+ * playback worker can run it and hand the main thread a ready-made image.
+ */
+export function paintEta(o: Uint8ClampedArray, eta: Float32Array, h: Float32Array, nx: number, rm: Int32Array, sc: number) {
+  const W = nx,
+    H = rm.length,
+    inv = 1 / sc;
+  for (let y = 0; y < H; y++) {
+    const base = rm[y] * nx;
+    for (let i = 0; i < W; i++) {
+      const k = base + i,
+        idx = (y * W + i) * 4;
+      if (h[k] <= 0) o[idx + 3] = 0;
+      else divColor(eta[k] * inv, o, idx);
+    }
+  }
+}
+
+/** A pre-painted η image from the playback worker. */
+export interface EtaImage {
+  rgba: Uint8ClampedArray;
+  sc: number;
+  n: number;
+}
+
+export function renderField(
+  canvas: HTMLCanvasElement,
+  run: RunData | null,
+  eta: Float32Array | null,
+  layer: Layer,
+  scaleMul: number,
+  pre?: EtaImage | null,
+) {
   if (!run) return;
   const { nx, ny, d, h } = run.bathy;
   const rm = ensureRowMap(ny, d);
@@ -87,9 +120,19 @@ export function renderField(canvas: HTMLCanvasElement, run: RunData | null, eta:
     ctx.clearRect(0, 0, W, H);
     return;
   }
+  const sc = run.scale * scaleMul;
+  // Fast path: the worker already painted this frame at this colour scale.
+  if (layer === "eta" && pre && pre.sc === sc && pre.rgba.length === W * H * 4) {
+    ctx.putImageData(new ImageData(pre.rgba as Uint8ClampedArray<ArrayBuffer>, W, H), 0, 0);
+    return;
+  }
   const img = ctx.createImageData(W, H),
     o = img.data;
-  const sc = run.scale * scaleMul;
+  if (layer === "eta") {
+    if (eta) paintEta(o, eta, run.bathy.h, nx, rm, sc);
+    ctx.putImageData(img, 0, 0);
+    return;
+  }
   const mx = run.etaMax,
     arr = run.arr;
   const lmax = Math.log10(sc * 4),
@@ -104,8 +147,7 @@ export function renderField(canvas: HTMLCanvasElement, run: RunData | null, eta:
         o[idx + 3] = 0;
         continue;
       }
-      if (layer === "eta") divColor((eta ? eta[k] : 0) / sc, o, idx);
-      else if (layer === "max") {
+      if (layer === "max") {
         const v = mx[k];
         if (v <= 0) {
           o[idx + 3] = 0;

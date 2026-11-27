@@ -33,10 +33,10 @@ export function PointReadout() {
   if (k < 0) return null;
   const depth = run.bathy.h[k];
   const wet = depth > 0;
-  const eta = live.S?.eta[k] ?? 0;
+  const eta = live.eta?.[k] ?? 0;
   const arr = run.arr[k];
   return (
-    <div className="glass pointer-events-none absolute bottom-[104px] right-2.5 z-[6] w-[230px] p-3 text-[0.8rem] max-lg:bottom-[150px]" role="status" aria-live="off">
+    <div className="glass pointer-events-none absolute bottom-[104px] right-2.5 z-[6] w-[230px] p-3 text-[0.8rem] max-lg:bottom-[262px] max-lg:w-[210px] max-lg:p-2.5" role="status" aria-live="off">
       <div className="mb-1.5 flex items-center justify-between">
         <span className="eyebrow !text-[0.64rem]">{H.readoutTitle}</span>
         <span className="tabular-nums text-[0.7rem] text-muted">
@@ -91,7 +91,7 @@ export function WaveProfile() {
   const D = transect.at(-1)!.x;
   const X = (x: number) => padL + (x / D) * (W - padL - padR);
   const env = transect.map((p) => (p.k >= 0 && p.h > 0 ? run.etaMax[p.k] : 0));
-  const cur = transect.map((p) => (p.k >= 0 && p.h > 0 ? (live.S?.eta[p.k] ?? 0) : 0));
+  const cur = transect.map((p) => (p.k >= 0 && p.h > 0 ? (live.eta?.[p.k] ?? 0) : 0));
   const A = Math.max(1e-6, ...env, ...cur.map(Math.abs));
   const waveAmp = 78; // px for amplitude A
   const Yeta = (e: number) => yS - (e / A) * waveAmp;
@@ -179,8 +179,8 @@ export function CoastalHeights() {
   const lo = -4,
     hi = 1; // 0.1 mm … 10 m
   const pos = (h: number) => Math.max(0, Math.min(1, (Math.log10(Math.max(h, 1e-6)) - lo) / (hi - lo))) * 100;
-  const nowMax = Math.max(0, ...rows.map((r) => (r.q.snap ? Math.abs(live.S?.eta[r.q.snap.k] ?? 0) : 0)));
-  const nowAt = rows.reduce((a, r) => (r.q.snap && Math.abs(live.S?.eta[r.q.snap.k] ?? 0) > Math.abs(live.S?.eta[a.q.snap?.k ?? 0] ?? 0) ? r : a), rows[0]);
+  const nowMax = Math.max(0, ...rows.map((r) => (r.q.snap ? Math.abs(live.eta?.[r.q.snap.k] ?? 0) : 0)));
+  const nowAt = rows.reduce((a, r) => (r.q.snap && Math.abs(live.eta?.[r.q.snap.k] ?? 0) > Math.abs(live.eta?.[a.q.snap?.k ?? 0] ?? 0) ? r : a), rows[0]);
   const ever = rows.reduce((a, r) => (r.hz > a.hz ? r : a), rows[0]);
   const place = (n: string) => t.places[n] ?? n;
   return (

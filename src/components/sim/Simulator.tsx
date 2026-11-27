@@ -59,6 +59,16 @@ export default function Simulator() {
     if (urlTab && TABS.some((t) => t.k === urlTab)) setTab(urlTab);
   }
   const [panel, setPanel] = useState(true);
+  // Offer the offline bathymetry when the tile download takes more than a few seconds.
+  const runSeq = useSim((s) => s.runSeq);
+  const [slowSeq, setSlowSeq] = useState(-1);
+  const inBathy = running && progress?.phase === "bathy";
+  useEffect(() => {
+    if (!inBathy) return;
+    const id = setTimeout(() => setSlowSeq(runSeq), 3000);
+    return () => clearTimeout(id);
+  }, [inBathy, runSeq]);
+  const slowTiles = inBathy && slowSeq === runSeq;
   const [help, setHelp] = useState(false);
   const [copied, setCopied] = useState(false);
   const router = useRouter();
@@ -254,6 +264,23 @@ export default function Simulator() {
                     : t.sim.preparing}
                 </div>
                 <div className="note mt-1">{t.sim.background}</div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {slowTiles && (
+                    <button
+                      className="btn btn-primary !min-h-0 !py-1.5 text-[0.8rem]"
+                      onClick={() => {
+                        const st = useSim.getState();
+                        st.setParams({ bathy: "fallback" });
+                        void st.runModel();
+                      }}
+                    >
+                      {t.sim.skipTiles}
+                    </button>
+                  )}
+                  <button className="btn !min-h-0 !py-1.5 text-[0.8rem]" onClick={() => useSim.getState().cancelRun()}>
+                    {t.sim.cancelRun}
+                  </button>
+                </div>
               </div>
             </div>
           )}

@@ -38,6 +38,9 @@ async function fetchTile(url: string, ms: number): Promise<Float32Array> {
   }
 }
 
+/** Decoded tiles survive between runs (10′ → 5′, scenario changes) in this worker. */
+const tileCache = new Map<string, Float32Array>();
+
 async function liveTiles(onProg: (f: number) => void) {
   const z = 5,
     n = 32;
@@ -54,14 +57,29 @@ async function liveTiles(onProg: (f: number) => void) {
   for (let x = x0; x <= x1; x++)
     for (let y = y0; y <= y1; y++) {
       const url = TERRARIUM.replace("{z}", String(z)).replace("{x}", String(x)).replace("{y}", String(y));
+      const hit = tileCache.get(url);
+      if (hit) {
+        tiles[x + "_" + y] = hit;
+        onProg(++done / total);
+        continue;
+      }
       jobs.push(
-        fetchTile(url, 15000).then((e) => {
+        fetchTile(url, 12000).then((e) => {
+          tileCache.set(url, e);
           tiles[x + "_" + y] = e;
           onProg(++done / total);
         }),
       );
     }
-  await Promise.all(jobs);
+  // One overall budget: a slow or blocked tile server falls back to the idealised bathymetry
+  // instead of keeping the user waiting.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const budget = new Promise<never>((_, rej) => (timer = setTimeout(() => rej(new Error("tile budget exceeded")), 20000)));
+  try {
+    await Promise.race([Promise.all(jobs), budget]);
+  } finally {
+    clearTimeout(timer);
+  }
   return { tiles, n };
 }
 
