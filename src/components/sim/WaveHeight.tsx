@@ -1,11 +1,12 @@
 "use client";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { DOM, DONDRA } from "@/lib/physics/constants";
 import { greatCircle, hav } from "@/lib/physics/geo";
 import type { RunData } from "@/lib/physics/simulate";
 import { fmtDur, fmtLen } from "@/lib/format";
 import { slRows } from "@/lib/sim/derive";
 import { live, useSim } from "@/lib/sim/store";
+import { playerWatch } from "@/lib/sim/player";
 import { fmt } from "@/i18n/config";
 import { useT } from "@/i18n/client";
 import { Section } from "@/components/ui/KV";
@@ -80,6 +81,30 @@ export function WaveProfile() {
       return { x: (D * i) / (pts.length - 1), k, h: k >= 0 ? run.bathy.h[k] : 0 };
     });
   }, [run]);
+  // Ask the playback worker for the running maximum along this transect ("maximum so far").
+  useEffect(() => {
+    if (!transect) return;
+    playerWatch(Int32Array.from(transect, (p) => (p.h > 0 ? p.k : -1)));
+    useSim.getState().refreshFrame();
+    return () => playerWatch(new Int32Array(0));
+  }, [transect]);
+
+  // One vertical scale per run, set by the open-ocean wave (deep water, away from the source and
+  // the coast), so the animation never rescales. Taller peaks are drawn clipped, with a marker.
+  const A = useMemo(() => {
+    if (!run || !transect) return 1;
+    const D = transect.at(-1)!.x;
+    let deep = 0,
+      all = 0;
+    for (const p of transect) {
+      if (p.k < 0 || p.h <= 0) continue;
+      const v = Math.max(run.etaMax[p.k], Math.abs(run.ck[0]?.eta[p.k] ?? 0));
+      all = Math.max(all, v);
+      if (p.h >= 1000 && p.x >= Math.min(300, 0.15 * D) && p.x <= D - 150) deep = Math.max(deep, run.etaMax[p.k]);
+    }
+    return Math.max(1e-6, deep > 0 ? deep : all);
+  }, [run, transect]);
+
   if (!run || !transect) return <p className="note">{t.sim.gauges.runFirst}</p>;
 
   const W = 460,
@@ -90,11 +115,13 @@ export function WaveProfile() {
   const yB = 285; // deepest seafloor drawn
   const D = transect.at(-1)!.x;
   const X = (x: number) => padL + (x / D) * (W - padL - padR);
-  const env = transect.map((p) => (p.k >= 0 && p.h > 0 ? run.etaMax[p.k] : 0));
+  const soFar = live.wmax && live.wmax.length === transect.length ? live.wmax : null;
+  const env = soFar ? Array.from(soFar) : transect.map((p) => (p.k >= 0 && p.h > 0 ? run.etaMax[p.k] : 0));
   const cur = transect.map((p) => (p.k >= 0 && p.h > 0 ? (live.eta?.[p.k] ?? 0) : 0));
-  const A = Math.max(1e-6, ...env, ...cur.map(Math.abs));
   const waveAmp = 78; // px for amplitude A
-  const Yeta = (e: number) => yS - (e / A) * waveAmp;
+  const lim = 1.25 * A; // drawn range ±1.25 A: the curve stays inside the panel, below the labels
+  const Yeta = (e: number) => yS - (Math.max(-lim, Math.min(lim, e)) / A) * waveAmp;
+  const clipped = transect.filter((p, i) => Math.abs(cur[i]) > lim);
   const hMax = 6500;
   const Yh = (h: number) => yS + (Math.min(h, hMax) / hMax) * (yB - yS);
   const exaggeration = waveAmp / A / ((yB - yS) / hMax);
@@ -130,6 +157,10 @@ export function WaveProfile() {
         <path d={line(env)} fill="none" stroke="#ffd166" strokeWidth="1.4" strokeDasharray="5 3" />
         <path d={line(cur)} fill="none" stroke="#fff" strokeWidth="2" />
         <path d={line(cur)} fill="none" stroke="#e5484d" strokeWidth="1" strokeOpacity=".9" />
+        {/* off-scale markers where the wave is taller than the drawn range */}
+        {clipped.map((p, i) => (
+          <path key={i} d={`M${X(p.x) - 3} ${Yeta(lim) - 3}l3 -5l3 5z`} fill="#e5484d" />
+        ))}
         {/* labels */}
         <g fontFamily="var(--font-sans)" fontSize="10.5" fill="var(--text-2)">
           <text x={X(0) + 2} y={14}>
@@ -159,10 +190,11 @@ export function WaveProfile() {
           <span className="inline-block h-[3px] w-5 rounded bg-[#e5484d]" /> {H.current}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-5 border-t-2 border-dashed border-[#ffd166]" /> {H.envelope}
+          <span className="inline-block w-5 border-t-2 border-dashed border-[#ffd166]" /> {soFar ? H.envelope : H.envelopeRun}
         </span>
         <span className="text-muted">
           {H.distance} · {fmt(H.exaggeration, { x: sig(exaggeration).toLocaleString("en-US") })}
+          {clipped.length > 0 && <> · ▲ {H.offScale}</>}
         </span>
       </figcaption>
     </figure>

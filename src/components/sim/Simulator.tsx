@@ -1,5 +1,5 @@
 "use client";
-import { Check, Keyboard, PanelRight, Share2 } from "lucide-react";
+import { Check, Keyboard, PanelRight, Play, Share2 } from "lucide-react";
 import Link from "@/i18n/Link";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -61,6 +61,7 @@ export default function Simulator() {
   const [panel, setPanel] = useState(true);
   // Offer the offline bathymetry when the tile download takes more than a few seconds.
   const runSeq = useSim((s) => s.runSeq);
+  const playWhenReady = useSim((s) => s.playWhenReady);
   const [slowSeq, setSlowSeq] = useState(-1);
   const inBathy = running && progress?.phase === "bathy";
   useEffect(() => {
@@ -157,7 +158,7 @@ export default function Simulator() {
         if (s.picking) s.set("picking", false);
       }
       else if (e.key === " ") {
-        s.setPlaying(!s.playing);
+        s.setPlaying(!(s.playing || s.playWhenReady));
         e.preventDefault();
       } else if (e.key === "r" || e.key === "R") {
         s.setPlaying(false);
@@ -277,6 +278,13 @@ export default function Simulator() {
                       {t.sim.skipTiles}
                     </button>
                   )}
+                  <button
+                    className={`btn !min-h-0 !py-1.5 text-[0.8rem] ${playWhenReady ? "btn-on" : ""}`}
+                    aria-pressed={playWhenReady}
+                    onClick={() => useSim.getState().set("playWhenReady", !playWhenReady)}
+                  >
+                    {playWhenReady ? <Check size={14} /> : <Play size={14} fill="currentColor" />} {playWhenReady ? t.sim.willPlay : t.sim.playWhenReady}
+                  </button>
                   <button className="btn !min-h-0 !py-1.5 text-[0.8rem]" onClick={() => useSim.getState().cancelRun()}>
                     {t.sim.cancelRun}
                   </button>

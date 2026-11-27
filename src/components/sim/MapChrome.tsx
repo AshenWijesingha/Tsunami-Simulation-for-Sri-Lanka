@@ -1,5 +1,5 @@
 "use client";
-import { Pause, Play, RotateCcw } from "lucide-react";
+import { Loader2, Pause, Play, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { C_KMMIN } from "@/lib/physics/constants";
 import { SCENARIOS } from "@/lib/physics/source";
@@ -82,6 +82,8 @@ export function Playbar() {
   const run = useSim((s) => s.run);
   const t = useSim((s) => s.t);
   const playing = useSim((s) => s.playing);
+  const playWhenReady = useSim((s) => s.playWhenReady);
+  const running = useSim((s) => s.running);
   // Re-render when the playback worker delivers a new field (step counter, max |η|).
   useSim((s) => s.frame);
   const speed = useSim((s) => s.speed);
@@ -99,20 +101,17 @@ export function Playbar() {
     const frame = (ts: number) => {
       const s = useSim.getState();
       if (!s.playing || !s.run) return;
-      // On slow devices the worker may still be computing the previous frame: wait for it so the
-      // clock and the drawn wave stay in step (playback slows down instead of skipping ahead).
-      if (playerBusy()) {
-        last = ts;
-        raf = requestAnimationFrame(frame);
-        return;
-      }
-      // About 30 updates per second: smooth to the eye, half the map repaints of 60 fps.
-      if (last != null && ts - last < 30) {
+      // While the worker is still computing the previous frame, keep the clock running but send
+      // nothing new: playback keeps the chosen speed and simply shows fewer frames on slow devices.
+      // About 30 updates per second otherwise: smooth to the eye, half the repaints of 60 fps.
+      if (playerBusy() || (last != null && ts - last < 30)) {
+        if (last == null) last = ts;
         raf = requestAnimationFrame(frame);
         return;
       }
       if (last != null) {
-        let nt = s.t + Math.min(0.1, (ts - last) / 1000) * s.speed;
+        // Cap the step so a stalled tab or a very slow frame never jumps far ahead.
+        let nt = s.t + Math.min(0.25, (ts - last) / 1000) * s.speed;
         if (nt >= s.run.params.dur) {
           nt = s.run.params.dur;
           s.seek(nt);
@@ -156,8 +155,15 @@ export function Playbar() {
   return (
     <div className="glass absolute bottom-6 left-2.5 right-2.5 z-[5] flex items-center gap-3.5 px-3 py-2 max-lg:flex-wrap max-lg:gap-2">
       <div className="flex items-center gap-1.5">
-        <button className="btn btn-primary h-9 w-11 !p-0 text-base" onClick={() => setPlaying(!playing)} disabled={!run} title={P.playTitle} aria-label={playing ? P.pause : P.play}>
-          {playing ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
+        <button
+          className="btn btn-primary h-9 w-11 !p-0 text-base"
+          onClick={() => setPlaying(!(playing || playWhenReady))}
+          disabled={!run && !running}
+          title={P.playTitle}
+          aria-label={playing || playWhenReady ? P.pause : P.play}
+          aria-busy={playWhenReady}
+        >
+          {playWhenReady ? <Loader2 size={18} className="animate-spin" /> : playing ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
         </button>
         <button className="btn h-9 !px-2.5" onClick={() => { setPlaying(false); seek(0); }} title={P.rewind} aria-label={P.rewind}>
           <RotateCcw size={17} />
@@ -197,9 +203,10 @@ export function Playbar() {
             : P.runFirst}
         </div>
       </div>
-      <div className="ml-auto text-right">
-        <div className="text-lg font-extrabold tabular-nums text-fg">{clockString(scen.clock.base, t, scen.clock.tz, true)}</div>
-        <div className="text-[0.74rem] tabular-nums text-muted">
+      {/* Fixed width: the slider must not resize while the clock text changes during playback. */}
+      <div className="ml-auto w-[10.5rem] flex-none text-right max-lg:w-auto">
+        <div className="whitespace-nowrap text-lg font-extrabold tabular-nums text-fg">{clockString(scen.clock.base, t, scen.clock.tz, true)}</div>
+        <div className="truncate text-[0.74rem] tabular-nums text-muted" title={run?.params.scen === "actual" && t >= 65 ? P.bulletinIssued.replace(/^ · /, "") : undefined}>
           t = {t.toFixed(1)} min{run?.params.scen === "actual" && t >= 65 ? P.bulletinIssued : ""}
         </div>
       </div>

@@ -10,6 +10,8 @@ export interface Frame {
   n: number;
   eta: Float32Array;
   img: EtaImage | null;
+  /** Running maximum of η at the watched cells (see playerWatch), or null. */
+  wmax: Float32Array | null;
 }
 
 let worker: Worker | null = null;
@@ -35,7 +37,7 @@ function getWorker(): Worker | null {
           pump();
         } else if (m.type === "frame") {
           busy = false;
-          onFrame?.({ n: m.n, eta: m.eta, img: m.rgba ? { rgba: m.rgba, sc: m.sc, n: m.n } : null });
+          onFrame?.({ n: m.n, eta: m.eta, img: m.rgba ? { rgba: m.rgba, sc: m.sc, n: m.n } : null, wmax: m.wmax ?? null });
           pump();
         } else if (m.type === "error") fail();
       };
@@ -86,6 +88,16 @@ export function playerInit(run: RunData, handlers: { frame: (f: Frame) => void; 
 export function playerSeek(n: number, sc: number | null) {
   pending = { n, sc };
   pump();
+}
+
+/**
+ * Cells whose running maximum should come back with each frame (the wave-profile transect).
+ * Forces a fresh frame so the envelope appears straight away.
+ */
+export function playerWatch(cells: Int32Array) {
+  if (!worker || broken) return;
+  worker.postMessage({ type: "watch", cells });
+  last = null;
 }
 
 export const playerActive = () => !!worker && !broken;
