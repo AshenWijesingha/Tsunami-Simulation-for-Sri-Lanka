@@ -10,6 +10,8 @@ export interface Checkpoint {
   eta: Float32Array;
   M: Float32Array;
   Nf: Float32Array;
+  /** Running maximum of η up to and including step n (lets playback show "maximum so far"). */
+  mx: Float32Array;
 }
 
 export interface GaugeResult {
@@ -102,15 +104,15 @@ export async function simulate(P: Params, onProgress: (p: Progress) => void, isC
       if ((v > thr || v < -thr) && arr[k] !== arr[k]) arr[k] = tm;
     }
   };
-  ck.push({ n: 0, eta: S.eta.slice(), M: S.M.slice(), Nf: S.Nf.slice() });
   rec();
   track();
+  ck.push({ n: 0, eta: S.eta.slice(), M: S.M.slice(), Nf: S.Nf.slice(), mx: etaMax.slice() });
   let lastReport = 0;
   while (S.n < nSteps) {
     G.step(S);
     rec();
     track();
-    if (S.n % ckEvery === 0) ck.push({ n: S.n, eta: S.eta.slice(), M: S.M.slice(), Nf: S.Nf.slice() });
+    if (S.n % ckEvery === 0) ck.push({ n: S.n, eta: S.eta.slice(), M: S.M.slice(), Nf: S.Nf.slice(), mx: etaMax.slice() });
     const now = performance.now();
     if (now - lastReport > 60) {
       lastReport = now;
@@ -204,7 +206,7 @@ function volume(eta: Float32Array, wet: Uint8Array) {
 /** Transferable buffers of a run (for postMessage). */
 export function transferables(r: RunData): ArrayBuffer[] {
   const b: ArrayBuffer[] = [r.bathy.h.buffer as ArrayBuffer, r.etaMax.buffer as ArrayBuffer, r.arr.buffer as ArrayBuffer];
-  for (const c of r.ck) b.push(c.eta.buffer as ArrayBuffer, c.M.buffer as ArrayBuffer, c.Nf.buffer as ArrayBuffer);
+  for (const c of r.ck) b.push(c.eta.buffer as ArrayBuffer, c.M.buffer as ArrayBuffer, c.Nf.buffer as ArrayBuffer, c.mx.buffer as ArrayBuffer);
   for (const q of r.gauges) b.push(q.t.buffer as ArrayBuffer, q.v.buffer as ArrayBuffer);
   return b;
 }

@@ -11,7 +11,8 @@ import { ensureRowMap, paintEta } from "@/lib/sim/render";
 
 type InMsg =
   | { type: "init"; id: number; bathy: Bathymetry; ck: Checkpoint[]; nSteps: number }
-  | { type: "seek"; id: number; n: number; sc: number | null };
+  | { type: "seek"; id: number; n: number; sc: number | null }
+  | { type: "watch"; cells: Int32Array };
 
 let G: Solver | null = null;
 let S: State | null = null;
@@ -19,12 +20,24 @@ let ck: Checkpoint[] = [];
 let nSteps = 0;
 let runId = -1;
 let bathy: Bathymetry | null = null;
+/** Running maximum of η (same definition as the model's ηmax) up to the current step. */
+let mx: Float32Array | null = null;
+/** Cells whose running maximum is returned with each frame (the wave-profile transect). */
+let watch: Int32Array | null = null;
 
 function restore(c: Checkpoint) {
   S!.eta.set(c.eta);
   S!.M.set(c.M);
   S!.Nf.set(c.Nf);
   S!.n = c.n;
+  mx!.set(c.mx);
+}
+
+function stepOnce() {
+  G!.step(S!);
+  const e = S!.eta,
+    m = mx!;
+  for (let k = 0; k < e.length; k++) if (e[k] > m[k]) m[k] = e[k];
 }
 
 function stepTo(n: number) {
@@ -33,13 +46,17 @@ function stepTo(n: number) {
   for (const k of ck) if (k.n <= n) c = k;
   // Restart from a checkpoint when going backwards, or when it saves work.
   if (n < S!.n || c.n > S!.n) restore(c);
-  while (S!.n < n) G!.step(S!);
+  while (S!.n < n) stepOnce();
 }
 
 self.onmessage = (e: MessageEvent<InMsg>) => {
   const m = e.data;
   const post = (msg: unknown, t: Transferable[] = []) => (self as DedicatedWorkerGlobalScope).postMessage(msg, t);
   try {
+    if (m.type === "watch") {
+      watch = m.cells;
+      return;
+    }
     if (m.type === "init") {
       runId = m.id;
       bathy = m.bathy;
@@ -47,6 +64,7 @@ self.onmessage = (e: MessageEvent<InMsg>) => {
       nSteps = m.nSteps;
       G = makeSolver(bathy);
       S = G.state();
+      mx = new Float32Array(S.eta.length);
       restore(ck[0]);
       post({ type: "ready", id: runId });
       return;
@@ -54,8 +72,19 @@ self.onmessage = (e: MessageEvent<InMsg>) => {
     if (m.id !== runId || !G || !S || !bathy) return;
     stepTo(m.n);
     const eta = S.eta.slice();
-    const out: { type: "frame"; id: number; n: number; eta: Float32Array; rgba?: Uint8ClampedArray; sc?: number } = { type: "frame", id: runId, n: S.n, eta };
+    const out: { type: "frame"; id: number; n: number; eta: Float32Array; rgba?: Uint8ClampedArray; sc?: number; wmax?: Float32Array } = {
+      type: "frame",
+      id: runId,
+      n: S.n,
+      eta,
+    };
     const transfer: Transferable[] = [eta.buffer];
+    if (watch && mx) {
+      const w = new Float32Array(watch.length);
+      for (let i = 0; i < watch.length; i++) w[i] = watch[i] >= 0 ? mx[watch[i]] : 0;
+      out.wmax = w;
+      transfer.push(w.buffer);
+    }
     if (m.sc != null) {
       const rm = ensureRowMap(bathy.ny, bathy.d);
       const rgba = new Uint8ClampedArray(bathy.nx * rm.length * 4);

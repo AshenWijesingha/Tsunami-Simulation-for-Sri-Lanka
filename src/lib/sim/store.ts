@@ -18,10 +18,19 @@ export type Overlay = "off" | "zones" | "inund";
  *  img — the same frame pre-painted by the worker for the η layer
  *  G/S — main-thread solver, used only when Web Workers are unavailable
  */
-export const live: { eta: Float32Array | null; n: number; img: EtaImage | null; G: Solver | null; S: State | null } = {
+export const live: {
+  eta: Float32Array | null;
+  n: number;
+  img: EtaImage | null;
+  /** Running maximum of η along the watched transect at step n (null: not available). */
+  wmax: Float32Array | null;
+  G: Solver | null;
+  S: State | null;
+} = {
   eta: null,
   n: -1,
   img: null,
+  wmax: null,
   G: null,
   S: null,
 };
@@ -37,6 +46,8 @@ interface SimStore {
   error: string | null;
   t: number;
   playing: boolean;
+  /** Play was pressed while the model was computing: start as soon as the run is ready. */
+  playWhenReady: boolean;
   speed: number;
   layer: Layer;
   scaleMul: number;
@@ -114,6 +125,7 @@ export const useSim = create<SimStore>((set, get) => ({
   error: null,
   t: 0,
   playing: false,
+  playWhenReady: false,
   speed: 10,
   layer: "eta",
   scaleMul: 1,
@@ -166,6 +178,7 @@ export const useSim = create<SimStore>((set, get) => ({
       live.G = live.S = null;
       live.eta = null;
       live.img = null;
+      live.wmax = null;
       live.n = -1;
       const viaWorker = playerInit(run, {
         frame: (f) => {
@@ -173,6 +186,7 @@ export const useSim = create<SimStore>((set, get) => ({
           live.eta = f.eta;
           live.n = f.n;
           live.img = f.img;
+          live.wmax = f.wmax;
           set((s) => ({ frame: s.frame + 1 }));
         },
         fail: () => {
@@ -193,6 +207,7 @@ export const useSim = create<SimStore>((set, get) => ({
         frame: s.frame + 1,
         history: [summarize(run, label), ...s.history].slice(0, 12),
       }));
+      if (get().playWhenReady) set({ playWhenReady: false, playing: true });
     } catch (e) {
       set({ running: false, progress: null, error: String(e) });
     }
@@ -200,7 +215,7 @@ export const useSim = create<SimStore>((set, get) => ({
 
   cancelRun() {
     cancelSimulation();
-    set({ running: false, progress: null, dirty: true });
+    set({ running: false, progress: null, dirty: true, playWhenReady: false });
   },
 
   seek(t) {
@@ -225,8 +240,13 @@ export const useSim = create<SimStore>((set, get) => ({
   },
 
   setPlaying(p) {
-    const { run, t } = get();
-    if (p && !run) return;
+    const { run, t, running } = get();
+    if (!p) set({ playWhenReady: false });
+    if (p && (running || !run)) {
+      // Queue it: the run in progress starts playing the moment it finishes.
+      if (running) set({ playWhenReady: true });
+      return;
+    }
     if (p && run && t >= run.params.dur) get().seek(0);
     set({ playing: p });
   },
